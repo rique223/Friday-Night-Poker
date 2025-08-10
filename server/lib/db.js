@@ -1,12 +1,13 @@
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+
+import { open } from 'sqlite';
+import sqlite3 from 'sqlite3';
 
 let dbInstance;
 
 async function createSchema(db) {
-  await db.exec(`
+    await db.exec(`
     PRAGMA journal_mode = WAL;
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -45,41 +46,38 @@ async function createSchema(db) {
 }
 
 export async function initDb() {
-  if (dbInstance) return dbInstance;
+    if (dbInstance) return dbInstance;
 
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  const dbFile = path.join(dataDir, 'poker.sqlite');
-  const db = await open({ filename: dbFile, driver: sqlite3.Database });
-  await createSchema(db);
-  dbInstance = db;
-  // upgrade path for older DBs missing deleted_at
-  try {
-    const cols = await db.all("PRAGMA table_info(sessions)");
-    if (!cols.some((c) => c.name === 'deleted_at')) {
-      await db.exec("ALTER TABLE sessions ADD COLUMN deleted_at TEXT");
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
     }
-  } catch {}
-  return dbInstance;
+
+    const dbFile = path.join(dataDir, 'poker.sqlite');
+    const db = await open({ filename: dbFile, driver: sqlite3.Database });
+    await createSchema(db);
+    dbInstance = db;
+
+    const cols = await db.all('PRAGMA table_info(sessions)');
+    if (!cols.some(c => c.name === 'deleted_at')) {
+        await db.exec('ALTER TABLE sessions ADD COLUMN deleted_at TEXT');
+    }
+
+    return dbInstance;
 }
 
 export async function getDb() {
-  if (!dbInstance) {
-    await initDb();
-  }
-  return dbInstance;
+    if (!dbInstance) {
+        await initDb();
+    }
+    return dbInstance;
 }
 
 export async function resetDb() {
-  const db = await getDb();
-  await db.exec(`
+    const db = await getDb();
+    await db.exec(`
     DROP TABLE IF EXISTS players;
     DROP TABLE IF EXISTS sessions;
   `);
-  await createSchema(db);
+    await createSchema(db);
 }
-
-

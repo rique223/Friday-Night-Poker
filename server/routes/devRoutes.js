@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { wrapAsync } from '../middleware/errorHandler.js';
+
 import * as controller from '../controllers/sessionController.js';
+import { wrapAsync } from '../middleware/errorHandler.js';
 
 const router = Router();
 

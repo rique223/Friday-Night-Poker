@@ -1,0 +1,41 @@
+{
+  "name": "friday-night-poker",
+  "version": "1.0.0",
+  "description": "A Friday Night Poker application with React frontend and Express backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "lint": "concurrently \"npm run lint --prefix client\" \"npm run lint --prefix server\"",
+    "lint:fix": "concurrently \"npm run lint:fix --prefix client\" \"npm run lint:fix --prefix server\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "build": "npm run build --prefix client",
+    "type-check": "npm run type-check --prefix client"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/friday-night-poker.git"
+  },
+  "keywords": [
+    "poker",
+    "react",
+    "express",
+    "typescript",
+    "sqlite"
+  ],
+  "license": "MIT"
+}

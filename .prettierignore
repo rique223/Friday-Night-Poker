@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+.env.*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Generated files
+*.d.ts.map
+*.js.map
+*.min.js
+*.min.css
+
+# Config files that should not be formatted
+*.config.js
+*.config.ts
+vite.config.*
+tailwind.config.*
+postcss.config.*
