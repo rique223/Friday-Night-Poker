@@ -145,6 +145,11 @@ export interface TranslationKeys {
     currencyUSD: string;
     currencyEUR: string;
     login: string;
+    emailOrUsername: string;
+    password: string;
+    enterCredentials: string;
+    emailOrUsernameRequired: string;
+    passwordRequired: string;
 }
 
 export type TranslationKey = keyof TranslationKeys;

@@ -5,6 +5,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 import { useForm } from '../hooks/useForm';
 import { LoginPayload } from '../types/auth';
 
@@ -12,6 +13,7 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const { login } = useAuth();
+    const { t } = usePreferences();
 
     const { isSubmitting, handleSubmit, getFieldProps } = useForm<LoginPayload>({
         initialValues: {
@@ -26,10 +28,10 @@ export default function LoginPage() {
         validate: values => {
             const errors: Partial<Record<keyof LoginPayload, string>> = {};
             if (!values.email?.trim()) {
-                errors.email = 'Email is required';
+                errors.email = t('emailOrUsernameRequired');
             }
             if (!values.password?.trim()) {
-                errors.password = 'Password is required';
+                errors.password = t('passwordRequired');
             }
             return errors;
         },
@@ -48,21 +50,21 @@ export default function LoginPage() {
 
                 <section className="card p-6 space-y-5">
                     <div className="space-y-1">
-                        <h2 className="text-lg font-semibold">Sign in</h2>
+                        <h2 className="text-lg font-semibold">{t('login')}</h2>
                         <p className="text-sm text-[var(--text-dim)]">
-                            Enter your credentials to continue.
+                            {t('enterCredentials')}
                         </p>
                     </div>
 
                     <form className="grid gap-3" onSubmit={handleSubmit}>
                         <Input
                             id="email"
-                            type="email"
+                            type="text"
                             autoComplete="username"
                             autoCapitalize="none"
                             spellCheck="false"
                             placeholder="you@example.com"
-                            label="Email"
+                            label={t('emailOrUsername')}
                             required
                             {...getFieldProps('email')}
                         />
@@ -71,12 +73,12 @@ export default function LoginPage() {
                             type="password"
                             autoComplete="current-password"
                             placeholder="••••••••"
-                            label="Password"
+                            label={t('password')}
                             required
                             {...getFieldProps('password')}
                         />
                         <Button type="submit" loading={isSubmitting} className="w-full">
-                            Sign in
+                            {t('login')}
                         </Button>
                     </form>
                 </section>

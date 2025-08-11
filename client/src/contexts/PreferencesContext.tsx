@@ -73,6 +73,11 @@ const dictionaries: Dictionaries = {
         currencyUSD: 'Dólar',
         currencyEUR: 'Euro',
         login: 'Login',
+        emailOrUsername: 'E-mail ou usuário',
+        password: 'Senha',
+        enterCredentials: 'Insira suas credenciais para continuar.',
+        emailOrUsernameRequired: 'E-mail ou usuário é obrigatório',
+        passwordRequired: 'Senha é obrigatória',
     },
     en: {
         createSession: 'Create Session',
@@ -142,6 +147,11 @@ const dictionaries: Dictionaries = {
         currencyUSD: 'Dollar',
         currencyEUR: 'Euro',
         login: 'Login',
+        emailOrUsername: 'Email or username',
+        password: 'Password',
+        enterCredentials: 'Enter your credentials to continue.',
+        emailOrUsernameRequired: 'Email or username is required',
+        passwordRequired: 'Password is required',
     },
     es: {
         createSession: 'Crear Sesión',
@@ -212,6 +222,11 @@ const dictionaries: Dictionaries = {
         currencyUSD: 'Dólar',
         currencyEUR: 'Euro',
         login: 'Iniciar sesión',
+        emailOrUsername: 'Correo o usuario',
+        password: 'Contraseña',
+        enterCredentials: 'Ingresa tus credenciales para continuar.',
+        emailOrUsernameRequired: 'Correo o usuario es obligatorio',
+        passwordRequired: 'La contraseña es obligatoria',
     },
 };
 
