@@ -262,9 +262,25 @@ button:not(:disabled),
     }
 }
 
+/*
+ * Deliberately *not* `overflow: hidden`. It was there to keep the rows' hover fill inside
+ * the card's rounded corners, but it also clipped each row's action menu, which is
+ * absolutely positioned and has to escape the card — the menu was invisible unless you
+ * tabbed to it. Rounding the first and last rows achieves the same corners without
+ * trapping anything.
+ */
 .session-group {
     border-radius: 12px;
-    overflow: hidden;
+}
+
+.session-group > :first-child {
+    border-top-left-radius: 11px;
+    border-top-right-radius: 11px;
+}
+
+.session-item:last-child {
+    border-bottom-left-radius: 11px;
+    border-bottom-right-radius: 11px;
 }
 
 .session-item:hover {
