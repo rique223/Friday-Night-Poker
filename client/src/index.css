@@ -1,40 +1,72 @@
 @import 'tailwindcss';
 
+/* Self-hosted so the app still renders correctly on a LAN with no internet — it is used
+   at a table, not at a desk. Variable fonts, so weights cost nothing extra. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+
 /*
  * Q101: this project is on Tailwind v4, which is CSS-first — `tailwind.config.js` was
  * never loaded (it is only read via `@config`, which was never used), so its `content`
  * globs and `theme.extend` were dead code and the file has been deleted.
  *
- * Design tokens now live in `@theme`, so they generate real utilities (`text-dim`,
+ * Design tokens live in `@theme`, so they generate real utilities (`text-dim`,
  * `bg-surface`, `border-border`) instead of forcing `text-[var(--text-dim)]` everywhere.
  * The light theme re-declares the same custom properties, which works because the
  * generated utilities resolve them at use time.
+ *
+ * The palette is built around one rule: colour encodes *direction of money*, and nothing
+ * else. Teal means the house pays the player, amber means the player pays the house.
+ * Because those two carry meaning, no other element is allowed to be saturated — the
+ * primary action is bone-on-ink, and a live session is marked by motion rather than hue.
+ * Red is reserved for destructive confirmation and never appears on a resting row.
  */
 @theme {
-    --color-bg: #111214;
-    --color-surface: #1a1b1e;
-    --color-text: #e7e9ea;
-    --color-dim: #9aa0a6;
-    --color-accent: #7c5cff;
-    --color-success: #22c55e;
-    --color-danger: #ef4444;
-    --color-border: rgba(255, 255, 255, 0.08);
-    --color-input: #0d0e10;
+    /* Ink, cooled slightly — a table at night rather than a black screen. */
+    --color-bg: #0f1216;
+    --color-surface: #171b22;
+    --color-raised: #1f242d;
+    /* Bone, warmed — ivory chips read against the cool ground instead of glaring. */
+    --color-text: #e9e5db;
+    --color-dim: #a1a9b5;
+    --color-border: rgb(233 229 219 / 0.11);
+    --color-input: #0c0f13;
+
+    /* The only two meaningful hues in the interface. */
+    --color-receive: #45bdaf;
+    --color-pay: #e79a45;
+
+    --color-danger: #e5484d;
+    /* The primary action inverts rather than colouring itself, so the one real action on
+       a screen is unmistakable without spending a hue on it. */
+    --color-accent: #e9e5db;
+    --color-accent-fg: #0f1216;
+
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    /* Money only. Space Grotesk's figures have enough character to carry the settlement
+       screen at display size, and it never appears on ordinary interface text. */
+    --font-money: 'Space Grotesk Variable', ui-monospace, monospace;
 
     --radius-control: 10px;
     --spacing-control: 40px;
 }
 
 :root[data-theme='light'] {
-    --color-bg: #f6f7f9;
-    --color-surface: #ffffff;
-    --color-text: #111214;
-    --color-dim: #5f6368;
-    --color-accent: #7c5cff;
-    --color-success: #16a34a;
-    --color-danger: #dc2626;
-    --color-border: rgba(0, 0, 0, 0.08);
-    --color-input: #f0f1f3;
+    --color-bg: #f4f1ea;
+    --color-surface: #fffefb;
+    --color-raised: #eeeae1;
+    --color-text: #14171c;
+    --color-dim: #5b6470;
+    --color-border: rgb(20 23 28 / 0.12);
+    --color-input: #f0ece3;
+
+    /* Darkened so both clear 4.5:1 on paper — the payout text used to sit at 3.3:1. */
+    --color-receive: #0d7268;
+    --color-pay: #92550a;
+
+    --color-danger: #c62a2f;
+    --color-accent: #14171c;
+    --color-accent-fg: #f4f1ea;
 }
 
 html,
@@ -46,6 +78,20 @@ body,
 body {
     background-color: var(--color-bg);
     color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Every currency figure in the app carries this. Tabular figures are the point: amounts
+ * stacked in a column line up digit for digit, so a row of payouts can be compared by
+ * eye instead of read one at a time.
+ */
+.money {
+    font-family: var(--font-money);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
 }
 
 .card {
@@ -54,49 +100,80 @@ body {
     border-radius: 12px;
 }
 
+/* A short all-caps label that names a group without competing with its contents. */
+.eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+}
+
 .btn {
     border-radius: var(--radius-control);
     min-height: var(--spacing-control);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     font-weight: 600;
+    /* Q-mobile: "Registrar Buy-in" used to break mid-word into "Registrar Buy-" / "in". */
+    white-space: nowrap;
     transition:
         transform 0.15s ease,
-        box-shadow 0.15s ease,
-        background-color 0.2s ease;
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        opacity 0.2s ease;
 }
 
 /* Q66: the lift and glow used to apply to disabled buttons too — only the cursor was
    guarded — so a disabled control still animated as though it were actionable. */
 .btn:hover:not(:disabled) {
-    transform: translateY(-1px) scale(1.03);
-    box-shadow: 0 8px 24px rgb(124 92 255 / 0.15);
+    transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .btn:disabled {
-    opacity: 0.55;
+    opacity: 0.45;
     cursor: not-allowed;
 }
 
 .btn:focus-visible,
 .input:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-text);
     outline-offset: 2px;
 }
 
 .btn-primary {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-accent-fg);
 }
 .btn-secondary {
-    background: var(--color-surface);
+    background: transparent;
     color: var(--color-text);
     border: 1px solid var(--color-border);
+}
+.btn-secondary:hover:not(:disabled) {
+    background: var(--color-raised);
 }
 .btn-danger {
     background: var(--color-danger);
     color: #fff;
+}
+/* Destructive actions sit quietly on a row and only look dangerous once hovered or
+   focused; the confirmation dialog is where the red belongs. */
+.btn-ghost-danger {
+    background: transparent;
+    color: var(--color-dim);
+    border: 1px solid transparent;
+}
+.btn-ghost-danger:hover:not(:disabled),
+.btn-ghost-danger:focus-visible {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
 }
 
 .input {
@@ -110,8 +187,8 @@ body {
 
 .input:focus {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgb(124 92 255 / 0.25);
+    border-color: var(--color-text);
+    box-shadow: 0 0 0 3px rgb(from var(--color-text) r g b / 0.18);
 }
 
 button:not(:disabled),
@@ -121,7 +198,45 @@ button:not(:disabled),
 
 .glass {
     backdrop-filter: blur(8px);
-    background: rgb(0 0 0 / 0.3);
+    background: rgb(0 0 0 / 0.45);
+}
+
+/*
+ * How deep a player is, relative to the deepest player at the table. The bar is the one
+ * piece of ambient information in play mode: you can see who is buried without reading a
+ * single number, which is the question actually being asked across the table.
+ */
+.exposure {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-raised);
+    overflow: hidden;
+}
+
+.exposure > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+/* A live session is marked by motion, not by colour — the two hues are spoken for. */
+.live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--color-text);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.25;
+    }
 }
 
 .skeleton {
