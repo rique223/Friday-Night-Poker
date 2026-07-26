@@ -1,113 +1,132 @@
-import { useCallback, useState } from 'react';
-import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import type { SessionStatus } from '@fnp/shared';
+import { useQuery } from '@tanstack/react-query';
 
+import { SESSION_STALE_TIME_MS } from '../constants';
 import { usePreferences } from '../contexts/PreferencesContext';
 import * as sessionService from '../services/sessionService';
-import {
-    AddPlayerPayload,
-    BuyInPayload,
-    CashOutPayload,
-    CreditPayload,
-    SessionDetail,
-} from '../types';
 
+import { sessionKeys } from './sessionKeys';
+import { useToastMutation } from './useToastMutation';
+
+/**
+ * The session detail query plus every mutation that can act on it.
+ *
+ * Each mutation invalidates the session cache once rather than `await loadSession()`
+ * inline (Q70/Q89); React Query dedupes overlapping invalidations, so a burst of buy-ins
+ * produces one refetch instead of one per call, and a stale response from a cancelled
+ * request can no longer overwrite fresher data.
+ */
 export function useSession(sessionId: number) {
-    const [session, setSession] = useState<SessionDetail | null>(null);
-    const [loading, setLoading] = useState(false);
     const { t, formatCurrency } = usePreferences();
-    const navigate = useNavigate();
+    const invalidateKey = sessionKeys.all;
 
-    const loadSession = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await sessionService.getSession(sessionId);
-            setSession(data);
-        } catch (error: any) {
-            toast.error(error?.message || t('failedLoadSession'));
-        } finally {
-            setLoading(false);
-        }
-    }, [sessionId, t]);
+    const query = useQuery({
+        queryKey: sessionKeys.detail(sessionId),
+        queryFn: () => sessionService.getSession(sessionId),
+        enabled: Number.isFinite(sessionId) && sessionId > 0,
+        staleTime: SESSION_STALE_TIME_MS,
+    });
 
-    const addPlayer = useCallback(
-        async (payload: AddPlayerPayload) => {
-            try {
-                await sessionService.addPlayer(sessionId, payload);
-                toast.success(t('playerAdded'));
-                await loadSession();
-            } catch (error: any) {
-                toast.error(error?.message || t('failedAddPlayer'));
-                throw error;
-            }
-        },
-        [sessionId, t, loadSession],
-    );
+    const addPlayer = useToastMutation({
+        mutationFn: (body: { name: string; initialBuyInCents: number }) =>
+            sessionService.addPlayer(sessionId, body),
+        successMessage: () => t('playerAdded'),
+        errorKey: 'failedAddPlayer',
+        invalidateKey,
+    });
 
-    const registerBuyIn = useCallback(
-        async (payload: BuyInPayload) => {
-            try {
-                await sessionService.registerBuyIn(sessionId, payload);
-                toast.success(t('buyInRegistered'));
-                await loadSession();
-            } catch (error: any) {
-                toast.error(error?.message || t('failedRegisterBuyIn'));
-                throw error;
-            }
-        },
-        [sessionId, t, loadSession],
-    );
+    const removePlayer = useToastMutation({
+        mutationFn: (playerId: number) => sessionService.removePlayer(sessionId, playerId),
+        successMessage: () => t('playerRemoved'),
+        errorKey: 'failedRemovePlayer',
+        invalidateKey,
+    });
 
-    const registerCredit = useCallback(
-        async (payload: CreditPayload) => {
-            try {
-                await sessionService.registerCredit(sessionId, payload);
-                toast.success(t('creditRegistered'));
-                await loadSession();
-            } catch (error: any) {
-                toast.error(error?.message || t('failedRegisterCredit'));
-                throw error;
-            }
-        },
-        [sessionId, t, loadSession],
-    );
+    const registerBuyIn = useToastMutation({
+        mutationFn: (body: { playerId: number; amountCents: number }) =>
+            sessionService.registerBuyIn(sessionId, body),
+        successMessage: () => t('buyInRegistered'),
+        errorKey: 'failedRegisterBuyIn',
+        invalidateKey,
+    });
 
-    const cashOut = useCallback(
-        async (payload: CashOutPayload) => {
-            try {
-                const result = await sessionService.cashOut(sessionId, payload);
-                toast.success(`${t('cashOut')}: ${formatCurrency(result.payout)}`);
-                await loadSession();
-                return result;
-            } catch (error: any) {
-                toast.error(error?.message || t('failedCashOut'));
-                throw error;
-            }
-        },
-        [sessionId, t, formatCurrency, loadSession],
-    );
+    const updateBuyIn = useToastMutation({
+        mutationFn: ({ entryId, amountCents }: { entryId: string; amountCents: number }) =>
+            sessionService.updateBuyIn(sessionId, entryId, amountCents),
+        successMessage: () => t('buyInUpdated'),
+        errorKey: 'failedUpdateBuyIn',
+        invalidateKey,
+    });
 
-    const endSession = useCallback(async () => {
-        if (!confirm(t('confirmEndSession'))) return;
+    const deleteBuyIn = useToastMutation({
+        mutationFn: (entryId: string) => sessionService.deleteBuyIn(sessionId, entryId),
+        successMessage: () => t('buyInDeleted'),
+        errorKey: 'failedDeleteBuyIn',
+        invalidateKey,
+    });
 
-        try {
-            await sessionService.endSession(sessionId);
-            toast.success(t('sessionEnded'));
-            navigate('/');
-        } catch (error: any) {
-            toast.error(error?.message || t('failedEndSession'));
-            throw error;
-        }
-    }, [sessionId, t, navigate]);
+    const registerCredit = useToastMutation({
+        mutationFn: (body: { providerId: number; receiverId: number; amountCents: number }) =>
+            sessionService.registerCredit(sessionId, body),
+        successMessage: () => t('creditRegistered'),
+        errorKey: 'failedRegisterCredit',
+        invalidateKey,
+    });
+
+    const updateCredit = useToastMutation({
+        mutationFn: ({ creditId, amountCents }: { creditId: string; amountCents: number }) =>
+            sessionService.updateCredit(sessionId, creditId, amountCents),
+        successMessage: () => t('creditUpdated'),
+        errorKey: 'failedUpdateCredit',
+        invalidateKey,
+    });
+
+    const deleteCredit = useToastMutation({
+        mutationFn: (creditId: string) => sessionService.deleteCredit(sessionId, creditId),
+        successMessage: () => t('creditDeleted'),
+        errorKey: 'failedDeleteCredit',
+        invalidateKey,
+    });
+
+    const cashOut = useToastMutation({
+        mutationFn: (body: { playerId: number; finalChipCountCents: number }) =>
+            sessionService.cashOut(sessionId, body),
+        successMessage: payoutCents => `${t('payout')}: ${formatCurrency(payoutCents)}`,
+        errorKey: 'failedCashOut',
+        invalidateKey,
+    });
+
+    const undoCashOut = useToastMutation({
+        mutationFn: (playerId: number) => sessionService.undoCashOut(sessionId, playerId),
+        successMessage: () => t('cashOutUndone'),
+        errorKey: 'failedUndoCashOut',
+        invalidateKey,
+    });
+
+    const endSession = useToastMutation({
+        mutationFn: () => sessionService.setSessionStatus(sessionId, 'ended' as SessionStatus),
+        successMessage: () => t('sessionEnded'),
+        errorKey: 'failedEndSession',
+        invalidateKey,
+    });
 
     return {
-        session,
-        loading,
-        loadSession,
+        session: query.data,
+        // Q59: `loading` used to start `false`, so the first paint rendered an empty state
+        // before the fetch had even been issued.
+        isLoading: query.isPending,
+        isFetching: query.isFetching,
+        error: query.error,
         addPlayer,
+        removePlayer,
         registerBuyIn,
+        updateBuyIn,
+        deleteBuyIn,
         registerCredit,
+        updateCredit,
+        deleteCredit,
         cashOut,
+        undoCashOut,
         endSession,
     };
 }

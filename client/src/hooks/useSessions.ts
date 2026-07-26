@@ -1,79 +1,70 @@
-import { useCallback, useState } from 'react';
-import toast from 'react-hot-toast';
+import type { SessionStatus } from '@fnp/shared';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { usePreferences } from '../contexts/PreferencesContext';
 import * as sessionService from '../services/sessionService';
-import { CreateSessionPayload, PaginatedResponse, Session } from '../types';
 
-interface UseSessionsParams {
-    archived?: boolean;
+import { type ListParams, sessionKeys } from './sessionKeys';
+import { useToastMutation } from './useToastMutation';
+
+export type { ListParams };
+
+/** The viewer's offset from UTC, so the server groups by the day the players experienced. */
+function tzOffsetMinutes(): number {
+    return -new Date().getTimezoneOffset();
 }
 
-export function useSessions({ archived = false }: UseSessionsParams = {}) {
-    const [sessions, setSessions] = useState<Session[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
+/**
+ * Q70: replaces the hand-rolled `useState` + `useCallback` fetching, which had no cache,
+ * no dedupe, no request cancellation (a fast tab switch could land an out-of-order
+ * response) and no refetch on focus (Q95).
+ *
+ * Q68: `ArchivedSessionsPage` reimplemented all of this with `useState<any[]>` instead of
+ * calling the hook — it now passes `status: 'archived'` here like every other caller.
+ */
+export function useSessionList(params: ListParams) {
     const { t } = usePreferences();
+    const invalidateKey = sessionKeys.all;
 
-    const loadSessions = useCallback(
-        async (pageNumber = 1, pageSize = 10, query = '') => {
-            setLoading(true);
-            try {
-                const loadFn = archived ? sessionService.listArchived : sessionService.listSessions;
-                const result: PaginatedResponse<Session> = await loadFn({
-                    page: pageNumber,
-                    pageSize,
-                    q: query,
-                });
+    const query = useQuery({
+        queryKey: sessionKeys.list(params),
+        queryFn: () =>
+            sessionService.listSessions({ ...params, tzOffsetMinutes: tzOffsetMinutes() }),
+        // Keeps the current page on screen while the next one loads instead of flashing
+        // an empty state between pages.
+        placeholderData: keepPreviousData,
+    });
 
-                setSessions(result.items);
-                setPage(pageNumber);
-                setTotal(result.total);
-            } catch (error: any) {
-                const errorMessage = archived ? t('failedLoadArchived') : t('failedLoadSessions');
-                toast.error(error?.message || errorMessage);
-            } finally {
-                setLoading(false);
-            }
-        },
-        [archived, t],
-    );
+    const createSession = useToastMutation({
+        mutationFn: (createdBy: string) =>
+            sessionService.createSession(createdBy.trim() ? { createdBy: createdBy.trim() } : {}),
+        successMessage: () => t('sessionCreated'),
+        errorKey: 'failedCreateSession',
+        invalidateKey,
+    });
 
-    const createSession = useCallback(
-        async (payload: CreateSessionPayload) => {
-            try {
-                await sessionService.createSession(payload);
-                toast.success(t('sessionCreated'));
-                await loadSessions(1, 10, '');
-            } catch (error: any) {
-                toast.error(error?.message || t('failedCreateSession'));
-                throw error;
-            }
-        },
-        [t, loadSessions],
-    );
+    const archiveSession = useToastMutation({
+        mutationFn: (id: number) => sessionService.setSessionStatus(id, 'archived'),
+        successMessage: () => t('sessionArchived'),
+        // Q57: this used to report `failedEndSession`; there was no archive key at all.
+        errorKey: 'failedArchiveSession',
+        invalidateKey,
+    });
 
-    const archiveSession = useCallback(
-        async (sessionId: number) => {
-            try {
-                await sessionService.archiveSession(sessionId);
-                await loadSessions(page, 10, '');
-            } catch (error: any) {
-                toast.error(error?.message || t('failedEndSession'));
-                throw error;
-            }
-        },
-        [page, t, loadSessions],
-    );
+    const restoreSession = useToastMutation({
+        mutationFn: (id: number) => sessionService.setSessionStatus(id, 'ended' as SessionStatus),
+        successMessage: () => t('sessionRestored'),
+        errorKey: 'failedRestoreSession',
+        invalidateKey,
+    });
 
     return {
-        sessions,
-        loading,
-        page,
-        total,
-        loadSessions,
+        page: query.data,
+        isLoading: query.isPending,
+        isFetching: query.isFetching,
+        error: query.error,
         createSession,
         archiveSession,
+        restoreSession,
     };
 }
