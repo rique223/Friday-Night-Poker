@@ -157,6 +157,31 @@
     "currencyEUR": "Euro",
     "sessionActions": "Session actions",
 
+    "atTable": "At the table",
+    "cashedOutPlural": "Cashed out",
+    "cashedOut": "cashed out",
+    "live": "live",
+
+    "settlement": "Settling up",
+    "housePays": "The house pays",
+    "paysHouse": "Pay the house",
+    "evenPlayers": "All square",
+    "receives": "receives",
+    "pays": "pays",
+    "settled": "all square",
+    "nobodyCashedOut": "Nobody has cashed out yet",
+
+    "setupTitle": "Who's at the table?",
+    "setupHint": "Add each player with their opening buy-in to start the night.",
+
+    "buyInFor": "Buy-in for",
+    "cashOutFor": "Cash out",
+    "movementsOf": "Movements for",
+    "undoCashOutFor": "Undo cash out for",
+    "removePlayerNamed": "Remove",
+    "owesHouse": "owes the house",
+    "aheadOfHouse": "ahead",
+
     "error_VALIDATION_FAILED": "Invalid data. Check the fields and try again.",
     "error_UNAUTHORIZED": "Your session expired. Please log in again.",
     "error_INVALID_CREDENTIALS": "Invalid email or password",

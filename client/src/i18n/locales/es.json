@@ -157,6 +157,31 @@
     "currencyEUR": "Euro",
     "sessionActions": "Acciones de la sesión",
 
+    "atTable": "En la mesa",
+    "cashedOutPlural": "Retirados",
+    "cashedOut": "retirado",
+    "live": "en vivo",
+
+    "settlement": "Cuentas de la noche",
+    "housePays": "La caja paga",
+    "paysHouse": "Pagan a la caja",
+    "evenPlayers": "Saldados",
+    "receives": "recibe",
+    "pays": "paga",
+    "settled": "saldado",
+    "nobodyCashedOut": "Nadie se ha retirado todavía",
+
+    "setupTitle": "¿Quién está en la mesa?",
+    "setupHint": "Agrega cada jugador con su compra inicial para empezar la noche.",
+
+    "buyInFor": "Buy-in de",
+    "cashOutFor": "Retirar a",
+    "movementsOf": "Movimientos de",
+    "undoCashOutFor": "Deshacer retiro de",
+    "removePlayerNamed": "Quitar",
+    "owesHouse": "debe a la caja",
+    "aheadOfHouse": "por delante",
+
     "error_VALIDATION_FAILED": "Datos inválidos. Revisa los campos e inténtalo de nuevo.",
     "error_UNAUTHORIZED": "Tu sesión expiró. Inicia sesión de nuevo.",
     "error_INVALID_CREDENTIALS": "Correo o contraseña inválidos",
