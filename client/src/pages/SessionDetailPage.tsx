@@ -80,7 +80,6 @@ export default function SessionDetailPage() {
     if (!session) {
         return (
             <div className="max-w-4xl mx-auto p-6 space-y-4 text-center">
-                {/* Q81: this was a hardcoded English "Session not found". */}
                 <p>{t('sessionNotFound')}</p>
                 <Button variant="secondary" onClick={() => navigate('/')}>
                     {t('back')}
@@ -89,7 +88,6 @@ export default function SessionDetailPage() {
         );
     }
 
-    // Q39: an archived session is frozen, and an ended one takes no further movements.
     const { mode, atTable, editable, deepestExposureCents } = view;
     const hasActivePlayers = atTable.length > 0;
 
@@ -172,10 +170,6 @@ export default function SessionDetailPage() {
                     </Button>
                     <div className="min-w-0">
                         <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 min-w-0">
-                            {/* The night is named by its date, not by its row id — that is
-                                how anyone at the table refers to it. Only the date may
-                                truncate; the live marker is never worth clipping, and
-                                putting `truncate` on the heading itself ate it on a phone. */}
                             <span className="truncate">{formatSessionDate(session.createdAt)}</span>
                             {mode !== 'settlement' && (
                                 <span className="inline-flex items-center gap-1.5 shrink-0">
@@ -186,8 +180,6 @@ export default function SessionDetailPage() {
                                 </span>
                             )}
                         </h1>
-                        {/* Q48: `getSession` never selected `created_by`, so the detail page
-                            believed it had a creator and always got `undefined`. */}
                         <p className="text-xs text-dim truncate">
                             {t('session')} #{session.id} · {formatDateTime(session.createdAt)}
                             {session.createdBy ? ` · ${t('createdBy')} ${session.createdBy}` : ''}
@@ -222,12 +214,6 @@ export default function SessionDetailPage() {
                 </p>
             )}
 
-            {/*
-             * A night has three shapes and each wants a different screen. Previously one
-             * layout served all of them, which is why a finished session opened on an
-             * empty "active players" tab — the payouts, the entire point of the app, sat
-             * behind a control nobody had a reason to press.
-             */}
             {mode === 'setup' && (
                 <section className="space-y-3">
                     <div>
@@ -245,13 +231,6 @@ export default function SessionDetailPage() {
             {mode === 'play' && (
                 <>
                     <section className="space-y-3">
-                        {/*
-                         * Both halves of the night stay reachable at once. Dropping the old
-                         * tabs made anyone who had already cashed out disappear entirely,
-                         * and put the settlement figures out of reach until the very last
-                         * player stood up — which is exactly when they stop being useful
-                         * for deciding anything.
-                         */}
                         <div className="flex items-center justify-between gap-2">
                             <div role="tablist" aria-label={t('players')} className="flex gap-2">
                                 <Button
@@ -331,9 +310,6 @@ export default function SessionDetailPage() {
                         )}
                     </section>
 
-                    {/* Adding a player and lending chips both happen occasionally, so they
-                        sit below the table rather than above it. Buy-ins, which happen
-                        constantly, moved onto the player rows themselves. */}
                     {editable && (
                         <section className="space-y-3">
                             <div className="flex gap-2 flex-wrap">
@@ -366,10 +342,6 @@ export default function SessionDetailPage() {
                         </section>
                     )}
 
-                    {/* Q87: the end-session hint used to live only in a `title` attribute,
-                        which does not exist on touch devices — where this app is mostly
-                        used. It is visible text now, and the button is genuinely disabled
-                        rather than toasting on click. */}
                     {editable && hasActivePlayers && (
                         <p className="text-xs text-dim">{t('cashOutAllFirst')}</p>
                     )}

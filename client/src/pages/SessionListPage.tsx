@@ -69,15 +69,6 @@ export default function SessionListPage() {
                 <HeaderActions showLogout />
             </header>
 
-            {/*
-             * Q55/Q59: the page used to swap between a centred "create your first session"
-             * layout and the list based purely on `sessions.length`. Filtering to zero
-             * matches flipped it to the centred layout, which does not render the filter —
-             * so there was no way to clear it short of reloading. And because `loading`
-             * started `false`, the very first paint always showed that empty state before
-             * the list popped in. Both layouts are gone: one layout, with the empty state
-             * living inside the browser where the filter stays reachable.
-             */}
             <main className="flex-1 mt-6 space-y-6">
                 <section className="card p-5">
                     <form onSubmit={handleSubmit} className="flex gap-3 flex-col sm:flex-row">
@@ -123,7 +114,6 @@ export default function SessionListPage() {
                 </section>
             </main>
 
-            {/* Q11: archiving used to be one unconfirmed click with no undo. */}
             <ConfirmDialog
                 open={pendingArchive !== null}
                 title={t('confirmArchiveTitle')}

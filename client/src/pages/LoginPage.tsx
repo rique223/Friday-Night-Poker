@@ -59,8 +59,6 @@ export default function LoginPage() {
                     <form className="grid gap-3" onSubmit={handleSubmit} noValidate>
                         <Input
                             id="email"
-                            // Q82: the label said "E-mail ou usuário" but `verifyUser` only
-                            // ever queried `users.email` — username login never existed.
                             label={t('email')}
                             type="email"
                             autoComplete="username"
@@ -79,9 +77,6 @@ export default function LoginPage() {
                             {...getFieldProps('password')}
                         />
 
-                        {/* Q52: a wrong password used to produce nothing at all — no toast,
-                            no field error — because `useForm` rethrew into a promise React
-                            discards. The failure is now rendered here, translated (Q71). */}
                         {submitError !== null && (
                             <p role="alert" className="text-sm text-danger">
                                 {messageFor(submitError, 'failedLogin')}

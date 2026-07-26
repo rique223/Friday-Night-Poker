@@ -14,16 +14,6 @@ import type { GroupBy } from '../i18n/types';
 
 import { useNavigateToSession } from './useNavigateToSession';
 
-/**
- * Q68: this page used to reimplement `useSessions` from scratch — duplicated fetch,
- * loading, page and total state typed as `useState<any[]>`, its own `refresh()` with a
- * missing effect dependency, and a hand-rolled mobile overflow menu duplicating
- * `HeaderActions` (including a `menuRef` that was assigned but never used).
- *
- * Q58: it also rendered `SessionBrowser` without `onFilter`, so typing a name and pressing
- * "Filtrar" did nothing, ever — and pagination dropped the query. Both come free now that
- * the shared hook and component drive the page.
- */
 export default function ArchivedSessionsPage() {
     const { t } = usePreferences();
     const navigate = useNavigate();
@@ -89,7 +79,6 @@ export default function ArchivedSessionsPage() {
                 />
             </section>
 
-            {/* Q11: there was no unarchive endpoint or UI at all — archiving was one-way. */}
             <ConfirmDialog
                 open={pendingRestore !== null}
                 title={t('confirmRestoreTitle')}

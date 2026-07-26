@@ -19,17 +19,6 @@ const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' } as co
 const FOCUSABLE =
     'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/**
- * Q63 fixes, all in one place:
- *
- * - the cleanup used to hardcode `body.style.overflow = 'auto'` rather than restoring
- *   whatever the page had, permanently overriding it;
- * - `onClose` is a fresh arrow on every render of the parent, so the effect tore down and
- *   re-ran on *every* render of all three mounted modals — it now lives in a ref;
- * - there was no `role="dialog"`, no `aria-modal`, no focus trap, no initial focus and no
- *   focus restore, so a keyboard or screen-reader user could tab straight out of the
- *   dialog into the page behind it.
- */
 export default function Modal({ title, open, onClose, children, maxWidth = 'md' }: ModalProps) {
     const { t } = usePreferences();
     const panelRef = useRef<HTMLDivElement>(null);
@@ -76,12 +65,6 @@ export default function Modal({ title, open, onClose, children, maxWidth = 'md' 
 
         document.addEventListener('keydown', handleKeyDown);
         const focusTimer = window.setTimeout(() => {
-            // Prefer a field that asked for focus over the first thing in the DOM, which
-            // is the close button. When a buy-in is opened from a player's row the only
-            // thing left to say is the amount, so the caret belongs there — otherwise the
-            // operator taps the row, then has to tap again to start typing.
-            // React does not reflect `autoFocus` as an attribute, so a field opts in with
-            // `data-autofocus` instead.
             const panel = panelRef.current;
             const preferred = panel?.querySelector<HTMLElement>('[data-autofocus]');
             (preferred ?? panel?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
