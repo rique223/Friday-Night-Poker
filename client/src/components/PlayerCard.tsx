@@ -1,15 +1,16 @@
 import { memo, useState } from 'react';
 import type { BuyInEntry, CreditEntry, Player } from '@fnp/shared';
-import { ChevronDown, ChevronUp, Pencil, RotateCcw, Trash2, UserMinus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, UserMinus } from 'lucide-react';
 
 import { usePreferences } from '../contexts/PreferencesContext';
+import { exposureCents } from '../hooks/useSessionMode';
 
 import NumberTicker from './NumberTicker';
 import { Button } from './ui';
 
 export interface PlayerCardActions {
+    onBuyIn: (player: Player) => void;
     onCashOut: (player: Player) => void;
-    onUndoCashOut: (player: Player) => void;
     onRemovePlayer: (player: Player) => void;
     onEditBuyIn: (player: Player, entry: BuyInEntry) => void;
     onDeleteBuyIn: (player: Player, entry: BuyInEntry) => void;
@@ -23,9 +24,15 @@ interface PlayerCardProps extends PlayerCardActions {
     playerNames: Map<number, string>;
     /** Editing is only offered while the session is open. */
     editable: boolean;
+    /** Deepest exposure at the table, used to scale this player's bar against the rest. */
+    deepestExposureCents: number;
 }
 
 /**
+ * A player during play. Cash-out is deliberately *not* the primary action here: it happens
+ * once per player per night, while buy-ins happen constantly, so the frequent action is
+ * the one that gets the weight.
+ *
  * Q94: `memo` is finally effective here. It was previously defeated by `usePreferences()`,
  * whose context value changed on every provider render because `t` was recreated each
  * time (Q72). With the context value stable, this only re-renders when its player does.
@@ -34,8 +41,9 @@ const PlayerCard = memo(function PlayerCard({
     player,
     playerNames,
     editable,
+    deepestExposureCents,
+    onBuyIn,
     onCashOut,
-    onUndoCashOut,
     onRemovePlayer,
     onEditBuyIn,
     onDeleteBuyIn,
@@ -51,94 +59,127 @@ const PlayerCard = memo(function PlayerCard({
     const removable =
         editable && player.isActive && player.buyIns.length === 1 && player.credits.length === 0;
 
+    const exposure = exposureCents(player);
+    const ahead = player.netBalanceCents > 0;
+    const barPercent =
+        deepestExposureCents > 0 ? Math.round((exposure / deepestExposureCents) * 100) : 0;
+
     return (
-        <div className="card p-3 space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                    <div className="font-semibold">
-                        {player.name}{' '}
-                        {!player.isActive && (
-                            <span className="text-sm font-normal text-dim">
-                                ({t('inactive').toLowerCase()})
-                            </span>
+        <article className="card p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold truncate">{player.name}</h3>
+                    <p className="text-sm text-dim">
+                        <span className="money">
+                            <NumberTicker
+                                value={player.totalBuyInsCents}
+                                formatter={formatCurrency}
+                            />
+                        </span>{' '}
+                        {t('totalBuyIns').toLowerCase()}
+                        {player.totalCreditsCents > 0 && (
+                            <>
+                                {' · '}
+                                <span className="money">
+                                    <NumberTicker
+                                        value={player.totalCreditsCents}
+                                        formatter={formatCurrency}
+                                    />
+                                </span>{' '}
+                                {t('credits').toLowerCase()}
+                            </>
                         )}
-                    </div>
-                    <div className="text-sm text-dim">
-                        {t('totalBuyIns')}:{' '}
-                        <NumberTicker value={player.totalBuyInsCents} formatter={formatCurrency} />
-                        {' · '}
-                        {t('credits')}:{' '}
-                        <NumberTicker value={player.totalCreditsCents} formatter={formatCurrency} />
-                    </div>
-                    <div className="text-xs text-dim">
-                        {t('netBalance')}:{' '}
-                        <NumberTicker value={player.netBalanceCents} formatter={formatCurrency} />
-                    </div>
-                    {!player.isActive && player.payoutCents !== null && (
-                        <div className="text-xs">
-                            {t('finalChips')}: {formatCurrency(player.finalChipCountCents ?? 0)} ·{' '}
-                            {t('payout')}:{' '}
-                            <strong
-                                className={player.payoutCents >= 0 ? 'text-success' : 'text-danger'}
-                            >
-                                <NumberTicker
-                                    value={player.payoutCents}
-                                    formatter={formatCurrency}
-                                />
-                            </strong>
-                        </div>
-                    )}
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                    {hasMovements && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="inline-flex gap-1"
-                            aria-expanded={showMovements}
-                            onClick={() => setShowMovements(value => !value)}
-                        >
-                            {showMovements ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {showMovements ? t('hideMovements') : t('showMovements')}
-                        </Button>
-                    )}
-                    {removable && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            aria-label={t('removePlayer')}
-                            title={t('removePlayer')}
-                            onClick={() => onRemovePlayer(player)}
-                        >
-                            <UserMinus size={14} />
-                        </Button>
-                    )}
-                    {player.isActive && editable && (
-                        <Button size="sm" onClick={() => onCashOut(player)}>
-                            {t('cashOut')}
-                        </Button>
-                    )}
-                    {!player.isActive && editable && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="inline-flex gap-1"
-                            onClick={() => onUndoCashOut(player)}
-                        >
-                            <RotateCcw size={14} />
-                            {t('undoCashOut')}
-                        </Button>
-                    )}
+                <div className="text-right shrink-0">
+                    {/*
+                     * Owing the house is the default state mid-game — you buy chips, so you
+                     * are down until you lend some out. Colouring that amber painted the
+                     * whole table as a warning and spent the palette on the unremarkable
+                     * case. Only being *ahead* is notable, so only that gets a hue.
+                     */}
+                    <div className={`money text-lg font-semibold ${ahead ? 'text-receive' : ''}`}>
+                        <NumberTicker
+                            value={Math.abs(player.netBalanceCents)}
+                            formatter={formatCurrency}
+                        />
+                    </div>
+                    <div className="text-xs text-dim">
+                        {ahead ? t('aheadOfHouse') : t('owesHouse')}
+                    </div>
                 </div>
             </div>
 
+            {/*
+             * Ambient rather than precise: how buried this player is compared with the
+             * deepest player at the table. It answers the question people actually ask
+             * across a table without anyone reading a number aloud.
+             */}
+            {deepestExposureCents > 0 && (
+                <div className="exposure" aria-hidden="true">
+                    <span
+                        className={ahead ? 'bg-receive' : 'bg-text/30'}
+                        style={{ width: `${ahead ? 100 : barPercent}%` }}
+                    />
+                </div>
+            )}
+
+            <div className="flex items-center gap-2 flex-wrap">
+                {editable && (
+                    <Button
+                        size="sm"
+                        aria-label={`${t('buyInFor')} ${player.name}`}
+                        onClick={() => onBuyIn(player)}
+                    >
+                        <Plus size={14} />
+                        {t('registerBuyIn')}
+                    </Button>
+                )}
+                {editable && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-label={`${t('cashOutFor')} ${player.name}`}
+                        onClick={() => onCashOut(player)}
+                    >
+                        {t('cashOut')}
+                    </Button>
+                )}
+                {hasMovements && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-expanded={showMovements}
+                        aria-label={`${t('movementsOf')} ${player.name}`}
+                        onClick={() => setShowMovements(value => !value)}
+                    >
+                        {showMovements ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {player.buyIns.length + player.credits.length}
+                    </Button>
+                )}
+                {removable && (
+                    <Button
+                        variant="ghostDanger"
+                        size="sm"
+                        aria-label={`${t('removePlayerNamed')} ${player.name}`}
+                        title={`${t('removePlayerNamed')} ${player.name}`}
+                        className="ml-auto"
+                        onClick={() => onRemovePlayer(player)}
+                    >
+                        <UserMinus size={14} />
+                    </Button>
+                )}
+            </div>
+
             {showMovements && (
-                <ul className="border-t border-border pt-2 space-y-1 text-xs">
+                <ul className="border-t border-border pt-3 space-y-2 text-xs">
                     {player.buyIns.map(entry => (
                         <li key={entry.id} className="flex items-center gap-2">
                             <span className="flex-1 min-w-0">
-                                <strong>{formatCurrency(entry.amountCents)}</strong>{' '}
+                                <strong className="money">
+                                    {formatCurrency(entry.amountCents)}
+                                </strong>{' '}
                                 <span className="text-dim">
                                     {entry.creditId
                                         ? `· ${t('creditFrom')} ${
@@ -155,7 +196,7 @@ const PlayerCard = memo(function PlayerCard({
                                     <Button
                                         variant="secondary"
                                         size="sm"
-                                        aria-label={t('editAmount')}
+                                        aria-label={`${t('editAmount')} — ${formatCurrency(entry.amountCents)}`}
                                         title={t('editAmount')}
                                         onClick={() => onEditBuyIn(player, entry)}
                                     >
@@ -163,9 +204,9 @@ const PlayerCard = memo(function PlayerCard({
                                     </Button>
                                     {player.buyIns.length > 1 && (
                                         <Button
-                                            variant="danger"
+                                            variant="ghostDanger"
                                             size="sm"
-                                            aria-label={t('delete')}
+                                            aria-label={`${t('delete')} — ${formatCurrency(entry.amountCents)}`}
                                             title={t('delete')}
                                             onClick={() => onDeleteBuyIn(player, entry)}
                                         >
@@ -180,7 +221,7 @@ const PlayerCard = memo(function PlayerCard({
                     {player.credits.map(entry => (
                         <li key={entry.id} className="flex items-center gap-2">
                             <span className="flex-1 min-w-0">
-                                <strong className="text-success">
+                                <strong className="money text-receive">
                                     {formatCurrency(entry.amountCents)}
                                 </strong>{' '}
                                 <span className="text-dim">
@@ -194,16 +235,16 @@ const PlayerCard = memo(function PlayerCard({
                                     <Button
                                         variant="secondary"
                                         size="sm"
-                                        aria-label={t('editAmount')}
+                                        aria-label={`${t('editAmount')} — ${formatCurrency(entry.amountCents)}`}
                                         title={t('editAmount')}
                                         onClick={() => onEditCredit(player, entry)}
                                     >
                                         <Pencil size={12} />
                                     </Button>
                                     <Button
-                                        variant="danger"
+                                        variant="ghostDanger"
                                         size="sm"
-                                        aria-label={t('delete')}
+                                        aria-label={`${t('delete')} — ${formatCurrency(entry.amountCents)}`}
                                         title={t('delete')}
                                         onClick={() => onDeleteCredit(player, entry)}
                                     >
@@ -215,7 +256,7 @@ const PlayerCard = memo(function PlayerCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </article>
     );
 });
 
