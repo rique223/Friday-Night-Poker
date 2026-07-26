@@ -1,9 +1,10 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 
+import Button from './ui/Button';
 import LangCurrencySwitcher from './LangCurrencySwitcher';
 import OverflowMenu from './OverflowMenu';
 import ThemeToggle from './ThemeToggle';
@@ -11,9 +12,14 @@ import ThemeToggle from './ThemeToggle';
 interface HeaderActionsProps {
     extraMenuItems?: ReactNode;
     showLogout?: boolean;
+    showArchived?: boolean;
 }
 
-export default function HeaderActions({ extraMenuItems, showLogout = false }: HeaderActionsProps) {
+export default function HeaderActions({
+    extraMenuItems,
+    showLogout = false,
+    showArchived = true,
+}: HeaderActionsProps) {
     const { t } = usePreferences();
     const navigate = useNavigate();
     const { logout } = useAuth();
@@ -23,25 +29,29 @@ export default function HeaderActions({ extraMenuItems, showLogout = false }: He
             <ThemeToggle />
             <OverflowMenu ariaLabel={t('menu')}>
                 <LangCurrencySwitcher />
-                <button
-                    className="btn btn-secondary w-full px-3 py-2"
-                    onClick={() => navigate('/archived')}
-                >
-                    {t('archived')}
-                </button>
+                {showArchived && (
+                    <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={() => navigate('/archived')}
+                    >
+                        {t('archived')}
+                    </Button>
+                )}
 
-                {extraMenuItems && extraMenuItems}
+                {extraMenuItems}
 
                 {showLogout && (
-                    <button
-                        className="btn btn-danger w-full px-3 py-2"
-                        onClick={async () => {
-                            await logout();
-                            navigate('/login');
+                    <Button
+                        variant="danger"
+                        className="w-full"
+                        onClick={() => {
+                            void logout().then(() => navigate('/login'));
                         }}
                     >
-                        Logout
-                    </button>
+                        {/* Q81: this label was a hardcoded English "Logout". */}
+                        {t('logout')}
+                    </Button>
                 )}
             </OverflowMenu>
         </div>

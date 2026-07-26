@@ -1,3 +1,4 @@
+import { usePreferences } from '../../contexts/PreferencesContext';
 import { cn } from '../../utils/cn';
 
 interface LoadingSpinnerProps {
@@ -5,12 +6,12 @@ interface LoadingSpinnerProps {
     className?: string;
 }
 
+const sizeClasses = { sm: 'w-4 h-4', md: 'w-6 h-6', lg: 'w-8 h-8' } as const;
+
 export default function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
-    const sizeClasses = {
-        sm: 'w-4 h-4',
-        md: 'w-6 h-6',
-        lg: 'w-8 h-8',
-    };
+    // Q81: the accessible name was a hardcoded English "Loading".
+    const { t } = usePreferences();
+    const label = t('loading');
 
     return (
         <div
@@ -20,9 +21,9 @@ export default function LoadingSpinner({ size = 'md', className }: LoadingSpinne
                 className,
             )}
             role="status"
-            aria-label="Loading"
+            aria-label={label}
         >
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">{label}</span>
         </div>
     );
 }

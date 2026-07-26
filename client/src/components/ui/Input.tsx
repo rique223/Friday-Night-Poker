@@ -1,4 +1,4 @@
-import { forwardRef, InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 
 import { cn } from '../../utils/cn';
 
@@ -31,9 +31,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                     {...props}
                 />
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                {helperText && !error && (
-                    <p className="text-sm text-[var(--text-dim)]">{helperText}</p>
-                )}
+                {helperText && !error && <p className="text-sm text-dim">{helperText}</p>}
             </div>
         );
     },

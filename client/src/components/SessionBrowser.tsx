@@ -1,206 +1,237 @@
-import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import type { FormEvent } from 'react';
+import type { SessionGroup, SessionSummary } from '@fnp/shared';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ArchiveRestore, Trash2 } from 'lucide-react';
 
 import { usePreferences } from '../contexts/PreferencesContext';
-import { archiveSession } from '../services/sessionService';
-import { GroupBy, Session } from '../types';
+import { GROUP_BY_OPTIONS, type GroupBy } from '../i18n/types';
 
-import Button from './ui/Button';
-import Input from './ui/Input';
-import Select from './ui/Select';
-import KebabMenu from './KebabMenu';
+import OverflowMenu from './OverflowMenu';
+import SessionListSkeleton from './SessionListSkeleton';
+import { Button, Input, Select } from './ui';
 
 interface SessionBrowserProps {
-    sessions: Session[];
-    onPage?: (page: number) => void;
-    onFilter?: (q: string) => void;
-    onSelect?: (s: Session) => void;
+    groups: SessionGroup[];
+    groupBy: GroupBy;
+    onGroupByChange: (groupBy: GroupBy) => void;
+    query: string;
+    onQueryChange: (query: string) => void;
+    onSubmitFilter: () => void;
     page: number;
+    totalGroups: number;
     pageSize: number;
-    total: number;
-    showControls?: boolean;
+    onPageChange: (page: number) => void;
+    onSelect: (session: SessionSummary) => void;
+    /** Omitted on the archive page, where archiving makes no sense. */
+    onArchive?: (session: SessionSummary) => void;
+    /** Only supplied on the archive page (Q11 — the archive is no longer one-way). */
+    onRestore?: (session: SessionSummary) => void;
+    isLoading: boolean;
+    isMutating?: boolean;
+    emptyTitle: string;
+    emptyHint: string;
 }
 
 export default function SessionBrowser({
-    sessions = [],
-    onPage,
-    onFilter,
-    onSelect,
+    groups,
+    groupBy,
+    onGroupByChange,
+    query,
+    onQueryChange,
+    onSubmitFilter,
     page,
+    totalGroups,
     pageSize,
-    total,
-    showControls = true,
+    onPageChange,
+    onSelect,
+    onArchive,
+    onRestore,
+    isLoading,
+    isMutating = false,
+    emptyTitle,
+    emptyHint,
 }: SessionBrowserProps) {
-    const [groupBy, setGroupBy] = useState<GroupBy>('week');
-    const [q, setQ] = useState('');
-    const { t } = usePreferences();
+    const { t, formatDateTime, formatGroupLabel } = usePreferences();
 
-    const grouped = useMemo(() => {
-        const groups = new Map<string, typeof sessions>();
-        const makeKey = (iso: string) => {
-            const d = new Date(iso);
-            if (groupBy === 'year') return `${d.getFullYear()}`;
-            if (groupBy === 'month')
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            const dayNum = tmp.getUTCDay() || 7;
-            tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-            const weekNo = Math.ceil(((+tmp - +yearStart) / 86400000 + 1) / 7);
-            return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-        };
-        const sorted = [...sessions].sort(
-            (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
-        );
-        for (const s of sorted) {
-            const key = makeKey(s.createdAt);
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key)!.push(s);
-        }
-        return Array.from(groups.entries());
-    }, [sessions, groupBy]);
+    const totalPages = Math.max(1, Math.ceil(totalGroups / Math.max(1, pageSize)));
+    const isFiltered = query.trim().length > 0;
 
-    const totalPages = Math.max(1, Math.ceil((total || 0) / Math.max(1, pageSize || 10)));
-    const canPrev = page > 1;
-    const canNext = page < totalPages;
-
-    function go(nextPage: number) {
-        onPage?.(nextPage);
+    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        onSubmitFilter();
     }
-
-    function applyFilter(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        onFilter?.(q);
-    }
-
-    const groupByOptions = [
-        { value: 'week', label: t('week') },
-        { value: 'month', label: t('month') },
-        { value: 'year', label: t('year') },
-    ];
 
     return (
         <div className="space-y-4">
-            {showControls && (
-                <div className="flex items-center gap-3">
-                    <form
-                        onSubmit={applyFilter}
-                        className="flex flex-col items-center gap-2 flex-1"
-                    >
-                        <div className="flex flex-row gap-2 w-full">
-                            <Input
-                                id="q"
-                                value={q}
-                                onChange={e => setQ(e.target.value)}
-                                placeholder={t('filterCreator')}
-                                className="flex-1"
-                                aria-label={t('filter')}
-                            />
-                            <Select
-                                id="groupBy"
-                                value={groupBy}
-                                onChange={e => setGroupBy(e.target.value as GroupBy)}
-                                options={groupByOptions}
-                                className="flex-1"
-                                aria-label={t('groupBy')}
-                            />
-                        </div>
-                        <Button type="submit" className="w-full flex-1" size="md">
-                            {t('filter')}
-                        </Button>
-                    </form>
+            {/* Q55/Q58: the filter stays mounted whatever the result count, so filtering to
+                zero matches is recoverable — and it is wired up on the archive page too,
+                where `onFilter` was simply never passed and the button did nothing. */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                <div className="flex flex-row gap-2 w-full">
+                    <Input
+                        id="session-filter"
+                        value={query}
+                        onChange={event => onQueryChange(event.target.value)}
+                        placeholder={t('filterCreator')}
+                        className="flex-1"
+                        aria-label={t('filterCreator')}
+                    />
+                    <Select
+                        id="group-by"
+                        value={groupBy}
+                        onChange={event => onGroupByChange(event.target.value as GroupBy)}
+                        options={GROUP_BY_OPTIONS.map(value => ({ value, label: t(value) }))}
+                        className="flex-1"
+                        aria-label={t('groupBy')}
+                    />
                 </div>
-            )}
-            {showControls && (
-                <div className="text-xs text-[var(--text-dim)]">{t('orderedNewest')}</div>
-            )}
-            <div className="space-y-3">
-                <AnimatePresence>
-                    {grouped.map(([label, items]) => (
-                        <motion.div
-                            key={label}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="card session-group"
+                <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">
+                        {t('filter')}
+                    </Button>
+                    {isFiltered && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                                onQueryChange('');
+                                onSubmitFilter();
+                            }}
                         >
-                            <div
-                                className="px-4 py-2 border-b border-white/10 text-sm font-semibold"
-                                style={{ color: 'var(--text)' }}
-                            >
-                                {label}
-                            </div>
-                            <ul className="divide-y divide-white/5">
-                                {items.map(s => (
-                                    <motion.li
-                                        key={s.id}
-                                        initial={{ opacity: 0, y: 6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.15 }}
-                                        onClick={() => onSelect?.(s)}
-                                        className="session-item px-4 py-2 text-sm flex justify-between items-center hover:bg-white/5 cursor-pointer"
-                                    >
-                                        <div className="text-left">
-                                            <div
-                                                className="font-medium"
-                                                style={{ color: 'var(--text)' }}
-                                            >
-                                                {t('session')} #{s.id}
-                                            </div>
-                                            <div className="text-[var(--text-dim)]">
-                                                {new Date(s.createdAt).toLocaleString()}{' '}
-                                                {s.createdBy ? `· ${s.createdBy}` : ''}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {!s.isActive && (
-                                                <span className="px-2 py-0.5 text-xs rounded bg-red-500/20 text-red-400">
-                                                    {t('ended')}
-                                                </span>
-                                            )}
-                                            <KebabMenu
-                                                onArchive={async () => {
-                                                    try {
-                                                        await archiveSession(s.id);
-                                                        onPage?.(page);
-                                                    } catch (e: any) {
-                                                        toast.error(
-                                                            e?.message || t('failedEndSession'),
-                                                        );
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    </motion.li>
-                                ))}
-                            </ul>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
-            {showControls && (
-                <div className="flex items-center gap-2 justify-end">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={!canPrev}
-                        onClick={() => go(Math.max(1, page - 1))}
-                    >
-                        {t('prev')}
-                    </Button>
-                    <div className="text-sm text-[var(--text-dim)]">
-                        {t('page')} {page} {totalPages > 1 ? `${t('of')} ${totalPages}` : ''}
-                    </div>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={!canNext}
-                        onClick={() => go(page + 1)}
-                    >
-                        {t('next')}
-                    </Button>
+                            {t('clearFilter')}
+                        </Button>
+                    )}
                 </div>
+            </form>
+
+            {isLoading ? (
+                <SessionListSkeleton />
+            ) : groups.length === 0 ? (
+                <div className="grid place-items-center min-h-[180px]">
+                    <div className="text-center space-y-1">
+                        <div className="text-base">{isFiltered ? t('noResults') : emptyTitle}</div>
+                        <div className="text-sm text-dim">
+                            {isFiltered ? t('noResultsHint') : emptyHint}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="text-xs text-dim">{t('orderedNewest')}</div>
+                    <div className="space-y-3">
+                        <AnimatePresence initial={false}>
+                            {groups.map(group => (
+                                <motion.div
+                                    key={group.key}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    className="card session-group"
+                                >
+                                    <div className="px-4 py-2 border-b border-border text-sm font-semibold">
+                                        {formatGroupLabel(group.startDate, groupBy)}
+                                    </div>
+                                    <ul className="divide-y divide-border">
+                                        {group.sessions.map(session => (
+                                            <li
+                                                key={session.id}
+                                                className="session-item flex items-center gap-2 pr-2"
+                                            >
+                                                {/* Q64: this used to be a `motion.li` with an
+                                                    `onClick` and no role, tabIndex or key
+                                                    handler — a session could not be opened
+                                                    from a keyboard at all. */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onSelect(session)}
+                                                    className="flex-1 text-left px-4 py-2 text-sm hover:bg-white/5 rounded-none"
+                                                >
+                                                    <span className="font-medium block">
+                                                        {t('session')} #{session.id}
+                                                    </span>
+                                                    <span className="text-dim">
+                                                        {formatDateTime(session.createdAt)}
+                                                        {session.createdBy
+                                                            ? ` · ${session.createdBy}`
+                                                            : ''}
+                                                    </span>
+                                                </button>
+
+                                                {session.status !== 'open' && (
+                                                    <span className="px-2 py-0.5 text-xs rounded bg-danger/20 text-danger whitespace-nowrap">
+                                                        {t(
+                                                            session.status === 'archived'
+                                                                ? 'archived'
+                                                                : 'ended',
+                                                        )}
+                                                    </span>
+                                                )}
+
+                                                {(onArchive ?? onRestore) && (
+                                                    <OverflowMenu
+                                                        ariaLabel={t('sessionActions')}
+                                                        buttonClassName="px-2 py-1 text-sm"
+                                                        panelClassName="absolute right-0 mt-2 w-52 card shadow-lg z-20 p-2 space-y-1"
+                                                    >
+                                                        {onArchive && (
+                                                            <Button
+                                                                variant="danger"
+                                                                size="sm"
+                                                                className="w-full inline-flex gap-2"
+                                                                // Q86: disabled while a
+                                                                // request is in flight, so a
+                                                                // double-tap can't fire twice.
+                                                                disabled={isMutating}
+                                                                onClick={() => onArchive(session)}
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                {t('deleteArchive')}
+                                                            </Button>
+                                                        )}
+                                                        {onRestore && (
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                className="w-full inline-flex gap-2"
+                                                                disabled={isMutating}
+                                                                onClick={() => onRestore(session)}
+                                                            >
+                                                                <ArchiveRestore size={14} />
+                                                                {t('restore')}
+                                                            </Button>
+                                                        )}
+                                                    </OverflowMenu>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="flex items-center gap-2 justify-end">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={page <= 1}
+                            onClick={() => onPageChange(Math.max(1, page - 1))}
+                        >
+                            {t('prev')}
+                        </Button>
+                        <span className="text-sm text-dim">
+                            {t('page')} {page} {t('of')} {totalPages}
+                        </span>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={page >= totalPages}
+                            onClick={() => onPageChange(page + 1)}
+                        >
+                            {t('next')}
+                        </Button>
+                    </div>
+                </>
             )}
         </div>
     );
