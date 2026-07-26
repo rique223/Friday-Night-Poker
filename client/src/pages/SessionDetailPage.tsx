@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { BuyInEntry, CreditEntry, Player } from '@fnp/shared';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 
 import ConfirmDialog from '../components/ConfirmDialog';
 import AddPlayerForm from '../components/forms/AddPlayerForm';
@@ -13,9 +13,11 @@ import HeaderActions from '../components/HeaderActions';
 import Modal from '../components/Modal';
 import PlayerCard from '../components/PlayerCard';
 import PlayerCardSkeleton from '../components/PlayerCardSkeleton';
+import SettlementView from '../components/SettlementView';
 import { Button, LoadingSpinner } from '../components/ui';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useSession } from '../hooks/useSession';
+import { useSessionView } from '../hooks/useSessionMode';
 
 type Editing = { kind: 'buyIn'; entry: BuyInEntry } | { kind: 'credit'; entry: CreditEntry } | null;
 
@@ -31,7 +33,7 @@ export default function SessionDetailPage() {
     const { id } = useParams();
     const sessionId = Number(id);
     const navigate = useNavigate();
-    const { t, formatDateTime } = usePreferences();
+    const { t, formatDateTime, formatSessionDate } = usePreferences();
 
     const {
         session,
@@ -50,20 +52,20 @@ export default function SessionDetailPage() {
         endSession,
     } = useSession(sessionId);
 
-    const [buyInOpen, setBuyInOpen] = useState(false);
+    const [buyInPlayer, setBuyInPlayer] = useState<Player | null>(null);
     const [creditOpen, setCreditOpen] = useState(false);
     const [cashOutPlayer, setCashOutPlayer] = useState<Player | null>(null);
     const [editing, setEditing] = useState<Editing>(null);
     const [confirming, setConfirming] = useState<Confirming>(null);
-    const [playersTab, setPlayersTab] = useState<'active' | 'inactive'>('active');
+    const [addingPlayer, setAddingPlayer] = useState(false);
+    const [playersTab, setPlayersTab] = useState<'atTable' | 'cashedOut'>('atTable');
 
     const players = useMemo(() => session?.players ?? [], [session?.players]);
     const playerNames = useMemo(
         () => new Map(players.map(player => [player.id, player.name])),
         [players],
     );
-    const activePlayers = useMemo(() => players.filter(p => p.isActive), [players]);
-    const inactivePlayers = useMemo(() => players.filter(p => !p.isActive), [players]);
+    const view = useSessionView(session);
 
     if (isLoading) {
         return (
@@ -88,9 +90,8 @@ export default function SessionDetailPage() {
     }
 
     // Q39: an archived session is frozen, and an ended one takes no further movements.
-    const editable = session.status === 'open';
-    const hasActivePlayers = activePlayers.length > 0;
-    const displayedPlayers = playersTab === 'active' ? activePlayers : inactivePlayers;
+    const { mode, atTable, editable, deepestExposureCents } = view;
+    const hasActivePlayers = atTable.length > 0;
 
     const closeConfirm = () => setConfirming(null);
 
@@ -170,13 +171,25 @@ export default function SessionDetailPage() {
                         <ArrowLeft size={16} /> {t('back')}
                     </Button>
                     <div className="min-w-0">
-                        <h1 className="text-lg sm:text-xl font-bold truncate">
-                            {t('session')} #{session.id}
+                        <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 min-w-0">
+                            {/* The night is named by its date, not by its row id — that is
+                                how anyone at the table refers to it. Only the date may
+                                truncate; the live marker is never worth clipping, and
+                                putting `truncate` on the heading itself ate it on a phone. */}
+                            <span className="truncate">{formatSessionDate(session.createdAt)}</span>
+                            {mode !== 'settlement' && (
+                                <span className="inline-flex items-center gap-1.5 shrink-0">
+                                    <span className="live-dot" aria-hidden="true" />
+                                    <span className="text-xs font-normal text-dim">
+                                        {t('live')}
+                                    </span>
+                                </span>
+                            )}
                         </h1>
                         {/* Q48: `getSession` never selected `created_by`, so the detail page
                             believed it had a creator and always got `undefined`. */}
                         <p className="text-xs text-dim truncate">
-                            {formatDateTime(session.createdAt)}
+                            {t('session')} #{session.id} · {formatDateTime(session.createdAt)}
                             {session.createdBy ? ` · ${t('createdBy')} ${session.createdBy}` : ''}
                         </p>
                     </div>
@@ -209,96 +222,185 @@ export default function SessionDetailPage() {
                 </p>
             )}
 
-            {editable && (
-                <>
+            {/*
+             * A night has three shapes and each wants a different screen. Previously one
+             * layout served all of them, which is why a finished session opened on an
+             * empty "active players" tab — the payouts, the entire point of the app, sat
+             * behind a control nobody had a reason to press.
+             */}
+            {mode === 'setup' && (
+                <section className="space-y-3">
+                    <div>
+                        <h2 className="text-lg font-semibold">{t('setupTitle')}</h2>
+                        <p className="text-sm text-dim">{t('setupHint')}</p>
+                    </div>
                     <AddPlayerForm
                         onSubmit={payload => addPlayer.mutateAsync(payload).then(() => undefined)}
                         disabled={addPlayer.isPending}
+                        showTitle={false}
                     />
+                </section>
+            )}
 
-                    <section className="card p-5 flex gap-3">
-                        <Button
-                            className="flex-1"
-                            disabled={activePlayers.length === 0}
-                            onClick={() => setBuyInOpen(true)}
-                        >
-                            {t('registerBuyIn')}
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="flex-1"
-                            disabled={activePlayers.length < 2}
-                            onClick={() => setCreditOpen(true)}
-                        >
-                            {t('registerCredit')}
-                        </Button>
+            {mode === 'play' && (
+                <>
+                    <section className="space-y-3">
+                        {/*
+                         * Both halves of the night stay reachable at once. Dropping the old
+                         * tabs made anyone who had already cashed out disappear entirely,
+                         * and put the settlement figures out of reach until the very last
+                         * player stood up — which is exactly when they stop being useful
+                         * for deciding anything.
+                         */}
+                        <div className="flex items-center justify-between gap-2">
+                            <div role="tablist" aria-label={t('players')} className="flex gap-2">
+                                <Button
+                                    role="tab"
+                                    id="tab-at-table"
+                                    aria-selected={playersTab === 'atTable'}
+                                    aria-controls="panel-at-table"
+                                    variant={playersTab === 'atTable' ? 'primary' : 'secondary'}
+                                    size="sm"
+                                    onClick={() => setPlayersTab('atTable')}
+                                >
+                                    {t('atTable')} · {atTable.length}
+                                </Button>
+                                <Button
+                                    role="tab"
+                                    id="tab-cashed-out"
+                                    aria-selected={playersTab === 'cashedOut'}
+                                    aria-controls="panel-cashed-out"
+                                    variant={playersTab === 'cashedOut' ? 'primary' : 'secondary'}
+                                    size="sm"
+                                    onClick={() => setPlayersTab('cashedOut')}
+                                >
+                                    {t('cashedOutPlural')} · {view.cashedOut.length}
+                                </Button>
+                            </div>
+                            {isFetching && <LoadingSpinner size="sm" />}
+                        </div>
+
+                        {playersTab === 'atTable' ? (
+                            <div
+                                role="tabpanel"
+                                id="panel-at-table"
+                                aria-labelledby="tab-at-table"
+                                className="grid gap-2"
+                            >
+                                {atTable.map(player => (
+                                    <PlayerCard
+                                        key={player.id}
+                                        player={player}
+                                        playerNames={playerNames}
+                                        editable={editable}
+                                        deepestExposureCents={deepestExposureCents}
+                                        onBuyIn={setBuyInPlayer}
+                                        onCashOut={setCashOutPlayer}
+                                        onRemovePlayer={p =>
+                                            setConfirming({ kind: 'removePlayer', player: p })
+                                        }
+                                        onEditBuyIn={(_p, entry) =>
+                                            setEditing({ kind: 'buyIn', entry })
+                                        }
+                                        onDeleteBuyIn={(_p, entry) =>
+                                            setConfirming({ kind: 'deleteBuyIn', entry })
+                                        }
+                                        onEditCredit={(_p, entry) =>
+                                            setEditing({ kind: 'credit', entry })
+                                        }
+                                        onDeleteCredit={(_p, entry) =>
+                                            setConfirming({ kind: 'deleteCredit', entry })
+                                        }
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div
+                                role="tabpanel"
+                                id="panel-cashed-out"
+                                aria-labelledby="tab-cashed-out"
+                            >
+                                <SettlementView
+                                    view={view}
+                                    editable={editable}
+                                    onUndoCashOut={p =>
+                                        setConfirming({ kind: 'undoCashOut', player: p })
+                                    }
+                                />
+                            </div>
+                        )}
                     </section>
+
+                    {/* Adding a player and lending chips both happen occasionally, so they
+                        sit below the table rather than above it. Buy-ins, which happen
+                        constantly, moved onto the player rows themselves. */}
+                    {editable && (
+                        <section className="space-y-3">
+                            <div className="flex gap-2 flex-wrap">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setAddingPlayer(open => !open)}
+                                    aria-expanded={addingPlayer}
+                                >
+                                    <Plus size={16} />
+                                    {t('addPlayer')}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    disabled={atTable.length < 2}
+                                    onClick={() => setCreditOpen(true)}
+                                >
+                                    {t('registerCredit')}
+                                </Button>
+                            </div>
+                            {addingPlayer && (
+                                <AddPlayerForm
+                                    onSubmit={payload =>
+                                        addPlayer.mutateAsync(payload).then(() => {
+                                            setAddingPlayer(false);
+                                        })
+                                    }
+                                    disabled={addPlayer.isPending}
+                                />
+                            )}
+                        </section>
+                    )}
+
+                    {/* Q87: the end-session hint used to live only in a `title` attribute,
+                        which does not exist on touch devices — where this app is mostly
+                        used. It is visible text now, and the button is genuinely disabled
+                        rather than toasting on click. */}
+                    {editable && hasActivePlayers && (
+                        <p className="text-xs text-dim">{t('cashOutAllFirst')}</p>
+                    )}
                 </>
             )}
 
-            <section className="card p-5">
-                <div className="flex items-center justify-between gap-2 mb-3">
-                    <h2 className="font-semibold">{t('players')}</h2>
-                    {isFetching && <LoadingSpinner size="sm" />}
-                </div>
+            {mode === 'settlement' && (
+                <section className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <h2 className="eyebrow">{t('settlement')}</h2>
+                        {isFetching && <LoadingSpinner size="sm" />}
+                    </div>
+                    <SettlementView
+                        view={view}
+                        editable={editable}
+                        onUndoCashOut={p => setConfirming({ kind: 'undoCashOut', player: p })}
+                    />
+                </section>
+            )}
 
-                <div className="mb-3 flex items-center gap-2">
-                    <Button
-                        variant={playersTab === 'active' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setPlayersTab('active')}
-                    >
-                        {t('active')} ({activePlayers.length})
-                    </Button>
-                    <Button
-                        variant={playersTab === 'inactive' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setPlayersTab('inactive')}
-                    >
-                        {t('inactive')} ({inactivePlayers.length})
-                    </Button>
-                </div>
-
-                {/* Q87: the end-session hint used to live only in a `title` attribute, which
-                    does not exist on touch devices — where this app is mostly used. It is
-                    visible text now, and the button is genuinely disabled rather than
-                    toasting on click. */}
-                {editable && hasActivePlayers && playersTab === 'active' && (
-                    <p className="mb-3 text-xs text-dim">{t('cashOutAllFirst')}</p>
-                )}
-
-                <div className="grid gap-2">
-                    {displayedPlayers.map(player => (
-                        <PlayerCard
-                            key={player.id}
-                            player={player}
-                            playerNames={playerNames}
-                            editable={editable}
-                            onCashOut={setCashOutPlayer}
-                            onUndoCashOut={p => setConfirming({ kind: 'undoCashOut', player: p })}
-                            onRemovePlayer={p => setConfirming({ kind: 'removePlayer', player: p })}
-                            onEditBuyIn={(_p, entry) => setEditing({ kind: 'buyIn', entry })}
-                            onDeleteBuyIn={(_p, entry) =>
-                                setConfirming({ kind: 'deleteBuyIn', entry })
-                            }
-                            onEditCredit={(_p, entry) => setEditing({ kind: 'credit', entry })}
-                            onDeleteCredit={(_p, entry) =>
-                                setConfirming({ kind: 'deleteCredit', entry })
-                            }
-                        />
-                    ))}
-                    {displayedPlayers.length === 0 && (
-                        <p className="text-sm text-dim">{t('noMovements')}</p>
-                    )}
-                </div>
-            </section>
-
-            <Modal title={t('registerBuyIn')} open={buyInOpen} onClose={() => setBuyInOpen(false)}>
+            <Modal
+                title={buyInPlayer ? `${t('buyInFor')} ${buyInPlayer.name}` : t('registerBuyIn')}
+                open={buyInPlayer !== null}
+                onClose={() => setBuyInPlayer(null)}
+            >
                 <BuyInForm
                     players={players}
+                    player={buyInPlayer ?? undefined}
                     onSubmit={async payload => {
                         await registerBuyIn.mutateAsync(payload);
-                        setBuyInOpen(false);
+                        setBuyInPlayer(null);
                     }}
                 />
             </Modal>

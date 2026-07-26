@@ -9,6 +9,11 @@ import { Button, Input } from '../ui';
 interface AddPlayerFormProps {
     onSubmit: (payload: { name: string; initialBuyInCents: number }) => Promise<void>;
     disabled?: boolean;
+    /**
+     * Setup mode already asks "who's at the table?" above this form, so repeating
+     * "Add player" directly underneath is one heading doing no work.
+     */
+    showTitle?: boolean;
 }
 
 interface Values extends Record<string, unknown> {
@@ -16,7 +21,11 @@ interface Values extends Record<string, unknown> {
     initialBuyIn: string;
 }
 
-export default function AddPlayerForm({ onSubmit, disabled = false }: AddPlayerFormProps) {
+export default function AddPlayerForm({
+    onSubmit,
+    disabled = false,
+    showTitle = true,
+}: AddPlayerFormProps) {
     const { t } = usePreferences();
 
     /**
@@ -55,7 +64,7 @@ export default function AddPlayerForm({ onSubmit, disabled = false }: AddPlayerF
 
     return (
         <section className="card p-5">
-            <h2 className="font-semibold mb-3">{t('addPlayer')}</h2>
+            {showTitle && <h2 className="font-semibold mb-3">{t('addPlayer')}</h2>}
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
                     <Input
