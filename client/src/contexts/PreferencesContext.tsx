@@ -33,6 +33,8 @@ interface PreferencesValue {
     /** Formats an integer-cent amount for display. */
     formatCurrency: (cents: number) => string;
     formatDateTime: (iso: string) => string;
+    /** The weekday-led label a night is actually remembered by, e.g. "sex., 25 de jul.". */
+    formatSessionDate: (iso: string) => string;
     formatGroupLabel: (startDate: string, groupBy: 'week' | 'month' | 'year') => string;
 }
 
@@ -105,6 +107,18 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         [lang],
     );
 
+    // Nobody refers to a night by its database id. "sex., 25 de jul." is how the game is
+    // remembered, so it leads the session header and `#id` drops to a subtitle.
+    const formatSessionDate = useCallback(
+        (iso: string) =>
+            new Intl.DateTimeFormat(LOCALE_TAGS[lang], {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+            }).format(new Date(iso)),
+        [lang],
+    );
+
     const formatGroupLabel = useCallback(
         (startDate: string, groupBy: 'week' | 'month' | 'year') => {
             // The server sends a plain calendar date; parsing it as UTC keeps it from
@@ -132,9 +146,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
             t,
             formatCurrency,
             formatDateTime,
+            formatSessionDate,
             formatGroupLabel,
         }),
-        [lang, currency, theme, toggleTheme, t, formatCurrency, formatDateTime, formatGroupLabel],
+        [
+            lang,
+            currency,
+            theme,
+            toggleTheme,
+            t,
+            formatCurrency,
+            formatDateTime,
+            formatSessionDate,
+            formatGroupLabel,
+        ],
     );
 
     return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
