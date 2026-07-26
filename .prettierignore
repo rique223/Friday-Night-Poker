@@ -1,43 +1,24 @@
-# Dependencies
+# Dependencies and lockfiles
 node_modules/
-package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
-# Build outputs
+# Build output
 dist/
-build/
-coverage/
+*.tsbuildinfo
 
-# Environment files
+# Generated — rewritten by `yarn openapi`
+shared/openapi.json
+
+# The review document: reflowing its tables and code blocks would churn the diff
+QUESTIONS.md
+
+# Environment and data
 .env
 .env.*
-
-# Database files
-*.db
+server/data/
 *.sqlite
-*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
 
-# Logs
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor files
-.vscode/
-.idea/
-
-# Generated files
-*.d.ts.map
-*.js.map
-*.min.js
-*.min.css
-
-# Config files that should not be formatted
-*.config.js
-*.config.ts
-vite.config.*
-tailwind.config.*
-postcss.config.*
+# Q99: config files used to be excluded here, which is why client/eslint.config.js was
+# 2-space while the rest of the repo is 4-space. They are formatted like everything else.

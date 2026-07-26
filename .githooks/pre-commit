@@ -1,0 +1,24 @@
+#!/bin/sh
+# Q105: keep lint and format from rotting again. Bypass with `git commit --no-verify`.
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+echo "pre-commit: prettier --check"
+printf '%s\n' "$staged" | tr '\n' '\0' \
+    | xargs -0 --no-run-if-empty yarn --silent prettier --check --ignore-unknown
+
+# Each workspace has its own eslint.config.js and there is none at the repo root, so
+# eslint has to be invoked from within the workspace that owns the files.
+for workspace in shared client server; do
+    files=$(printf '%s\n' "$staged" \
+        | sed -n "s|^$workspace/||p" \
+        | grep -E '\.(ts|tsx|js|jsx)$' || true)
+    [ -z "$files" ] && continue
+    echo "pre-commit: eslint ($workspace)"
+    (cd "$workspace" && printf '%s\n' "$files" | tr '\n' '\0' \
+        | xargs -0 --no-run-if-empty yarn --silent eslint --no-warn-ignored)
+done
+
+echo "pre-commit: ok"
