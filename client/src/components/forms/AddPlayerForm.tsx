@@ -1,45 +1,57 @@
+import { useState } from 'react';
+import { toCents } from '@fnp/shared';
+
+import { STORAGE_KEYS } from '../../constants';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import { useForm } from '../../hooks/useForm';
-import { AddPlayerPayload } from '../../types';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
+import { Button, Input } from '../ui';
 
 interface AddPlayerFormProps {
-    onSubmit: (payload: AddPlayerPayload) => Promise<void>;
-    defaultInitialBuyIn?: string;
+    onSubmit: (payload: { name: string; initialBuyInCents: number }) => Promise<void>;
+    disabled?: boolean;
 }
 
-export default function AddPlayerForm({ onSubmit, defaultInitialBuyIn = '' }: AddPlayerFormProps) {
+interface Values extends Record<string, unknown> {
+    name: string;
+    initialBuyIn: string;
+}
+
+export default function AddPlayerForm({ onSubmit, disabled = false }: AddPlayerFormProps) {
     const { t } = usePreferences();
 
-    const { values, errors, isSubmitting, handleSubmit, getFieldProps, reset } =
-        useForm<AddPlayerPayload>({
-            initialValues: {
-                name: '',
-                initialBuyIn: Number(defaultInitialBuyIn) || 0,
-            },
-            onSubmit: async data => {
-                await onSubmit(data);
-                // Save the initial buy-in to localStorage for next time
-                localStorage.setItem('lastInitialBuyIn', String(data.initialBuyIn));
-                reset();
-                // Focus the name input after successful submission
-                const nameInput = document.getElementById('add-player-name') as HTMLInputElement;
-                if (nameInput) {
-                    nameInput.focus();
-                }
-            },
-            validate: values => {
-                const errors: Partial<Record<keyof AddPlayerPayload, string>> = {};
-                if (!values.name?.trim()) {
-                    errors.name = 'Name is required';
-                }
-                if (!values.initialBuyIn || values.initialBuyIn <= 0) {
-                    errors.initialBuyIn = 'Initial buy-in must be greater than 0';
-                }
-                return errors;
-            },
-        });
+    /**
+     * Q60: the remembered buy-in used to be read from localStorage *during render* by the
+     * parent and baked into `initialValues` at mount — but the component never remounts
+     * and `reset()` restored those same original values, so "remember my last buy-in"
+     * only took effect after a full page reload. It is state here, and `reset` is given
+     * the new value explicitly.
+     */
+    const [lastBuyIn, setLastBuyIn] = useState(
+        () => localStorage.getItem(STORAGE_KEYS.lastInitialBuyIn) ?? '',
+    );
+
+    const { errors, isSubmitting, handleSubmit, getFieldProps, reset } = useForm<Values>({
+        initialValues: { name: '', initialBuyIn: lastBuyIn },
+        onSubmit: async values => {
+            await onSubmit({
+                name: values.name.trim(),
+                initialBuyInCents: toCents(values.initialBuyIn),
+            });
+            localStorage.setItem(STORAGE_KEYS.lastInitialBuyIn, values.initialBuyIn);
+            setLastBuyIn(values.initialBuyIn);
+            reset({ name: '', initialBuyIn: values.initialBuyIn });
+            document.getElementById('add-player-name')?.focus();
+        },
+        validate: values => {
+            const result: Partial<Record<keyof Values, string>> = {};
+            // Q81: these messages were hardcoded English, shown to a Portuguese default UI.
+            if (!values.name.trim()) result.name = t('nameRequired');
+            if (!(toCents(values.initialBuyIn) > 0)) {
+                result.initialBuyIn = t('initialBuyInPositive');
+            }
+            return result;
+        },
+    });
 
     return (
         <section className="card p-5">
@@ -51,27 +63,28 @@ export default function AddPlayerForm({ onSubmit, defaultInitialBuyIn = '' }: Ad
                         label={t('name')}
                         placeholder={t('name')}
                         className="flex-1 basis-0 min-w-0"
-                        required
+                        disabled={disabled}
                         {...getFieldProps('name')}
                     />
+                    {/* Q61: the old version spread a React synthetic event and faked
+                        `target` to smuggle a number through a string handler, with an
+                        `as any` and a second `getFieldProps()` call inside the handler.
+                        The field is simply a string now, converted to cents on submit. */}
                     <Input
+                        id="add-player-buy-in"
                         label={t('initialBuyIn')}
                         type="number"
-                        min="1"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
                         placeholder={t('initialBuyIn')}
                         className="flex-1 basis-0 min-w-0"
-                        required
+                        disabled={disabled}
                         {...getFieldProps('initialBuyIn')}
-                        onChange={e => {
-                            const value = e.target.value;
-                            getFieldProps('initialBuyIn').onChange({
-                                ...e,
-                                target: { ...e.target, value: Number(value) || 0 },
-                            } as any);
-                        }}
+                        error={errors.initialBuyIn}
                     />
                 </div>
-                <Button type="submit" loading={isSubmitting} className="w-full">
+                <Button type="submit" loading={isSubmitting} disabled={disabled} className="w-full">
                     {t('add')}
                 </Button>
             </form>

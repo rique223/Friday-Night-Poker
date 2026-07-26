@@ -1,78 +1,74 @@
+import type { Player } from '@fnp/shared';
+import { toCents } from '@fnp/shared';
+
 import { usePreferences } from '../../contexts/PreferencesContext';
 import { useForm } from '../../hooks/useForm';
-import { CreditPayload, Player } from '../../types';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import Select from '../ui/Select';
+import { Button, Input, Select } from '../ui';
 
 interface CreditFormProps {
-    onSubmit: (payload: CreditPayload) => Promise<void>;
+    onSubmit: (payload: {
+        providerId: number;
+        receiverId: number;
+        amountCents: number;
+    }) => Promise<void>;
     players: Player[];
+}
+
+interface Values extends Record<string, unknown> {
+    providerId: string;
+    receiverId: string;
+    amount: string;
 }
 
 export default function CreditForm({ onSubmit, players }: CreditFormProps) {
     const { t } = usePreferences();
+    const options = players
+        .filter(player => player.isActive)
+        .map(player => ({ value: String(player.id), label: player.name }));
 
-    const activePlayers = players.filter(p => p.isActive);
-    const playerOptions = activePlayers.map(p => ({
-        value: String(p.id),
-        label: p.name,
-    }));
-
-    const { values, errors, isSubmitting, handleSubmit, getFieldProps } = useForm<{
-        providerId: string;
-        receiverId: string;
-        amount: string;
-    }>({
-        initialValues: {
-            providerId: '',
-            receiverId: '',
-            amount: '',
-        },
-        onSubmit: async data => {
-            await onSubmit({
-                providerId: Number(data.providerId),
-                receiverId: Number(data.receiverId),
-                amount: Number(data.amount),
-            });
-        },
+    const { isSubmitting, handleSubmit, getFieldProps } = useForm<Values>({
+        initialValues: { providerId: '', receiverId: '', amount: '' },
+        onSubmit: values =>
+            onSubmit({
+                providerId: Number(values.providerId),
+                receiverId: Number(values.receiverId),
+                amountCents: toCents(values.amount),
+            }),
         validate: values => {
-            const errors: any = {};
-            if (!values.providerId) {
-                errors.providerId = 'Please select a provider';
+            const result: Partial<Record<keyof Values, string>> = {};
+            if (!values.providerId) result.providerId = t('providerRequired');
+            if (!values.receiverId) result.receiverId = t('receiverRequired');
+            // The server rejects this too (Q37) — it used to be a client-only check, so a
+            // direct API call corrupted the player's row.
+            if (values.providerId && values.providerId === values.receiverId) {
+                result.receiverId = t('sameProviderReceiver');
             }
-            if (!values.receiverId) {
-                errors.receiverId = 'Please select a receiver';
-            }
-            if (values.providerId && values.receiverId && values.providerId === values.receiverId) {
-                errors.receiverId = 'Provider and receiver cannot be the same';
-            }
-            if (!values.amount || Number(values.amount) <= 0) {
-                errors.amount = 'Amount must be greater than 0';
-            }
-            return errors;
+            if (!(toCents(values.amount) > 0)) result.amount = t('amountPositive');
+            return result;
         },
     });
 
     return (
         <form onSubmit={handleSubmit} className="grid gap-3">
             <Select
-                options={playerOptions}
+                label={t('provider')}
+                options={options}
                 placeholder={t('provider')}
-                required
                 {...getFieldProps('providerId')}
             />
             <Select
-                options={playerOptions}
+                label={t('receiver')}
+                options={options}
                 placeholder={t('receiver')}
-                required
                 {...getFieldProps('receiverId')}
             />
             <Input
+                label={t('amount')}
                 type="number"
-                min="1"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
                 placeholder={t('amount')}
-                required
                 {...getFieldProps('amount')}
             />
             <Button type="submit" loading={isSubmitting}>
