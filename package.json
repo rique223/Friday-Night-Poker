@@ -15,7 +15,7 @@
         "start": "yarn workspace server start",
         "lint": "yarn workspaces run lint",
         "lint:fix": "yarn workspaces run lint:fix",
-        "type-check": "yarn workspaces run type-check",
+        "type-check": "yarn workspace @fnp/shared build && yarn workspaces run type-check",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "openapi": "yarn workspace @fnp/shared openapi",
