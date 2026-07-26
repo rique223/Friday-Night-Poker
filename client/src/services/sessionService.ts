@@ -1,98 +1,116 @@
-import {
-    AddPlayerPayload,
-    ApiResponse,
-    BuyInPayload,
-    CashOutPayload,
-    CreateSessionPayload,
-    CreditPayload,
-    PaginatedResponse,
-    Session,
+import type {
+    AddPlayerBody,
+    BuyInBody,
+    CashOutBody,
+    CreateSessionBody,
+    CreditBody,
+    ListSessionsQuery,
     SessionDetail,
-} from '../types';
+    SessionGroupPage,
+    SessionStatus,
+    SessionSummary,
+} from '@fnp/shared';
 
 import api from './apiClient';
 
-interface ListSessionsParams {
-    page?: number;
-    pageSize?: number;
-    q?: string;
+/**
+ * Thin transport over the API. Request and response shapes come from `@fnp/shared`, so
+ * the hand-written client types that had already drifted from the server (Q75) are gone —
+ * a rename on either side is now a compile error here.
+ */
+
+interface Envelope<T> {
+    success: true;
+    data: T;
 }
 
-export async function listSessions(
-    params: ListSessionsParams = {},
-): Promise<PaginatedResponse<Session>> {
-    const { data } = await api.get<ApiResponse<PaginatedResponse<Session>>>('/sessions', {
-        params,
-    });
-    if (!data.success) throw new Error(data.error || 'Failed to list sessions');
-    return data.data!;
+export type ListSessionsParams = Partial<ListSessionsQuery>;
+
+export async function listSessions(params: ListSessionsParams): Promise<SessionGroupPage> {
+    const { data } = await api.get<Envelope<SessionGroupPage>>('/sessions', { params });
+    return data.data;
 }
 
-export async function listArchived(
-    params: ListSessionsParams = {},
-): Promise<PaginatedResponse<Session>> {
-    const { data } = await api.get<ApiResponse<PaginatedResponse<Session>>>('/sessions/archived', {
-        params,
-    });
-    if (!data.success) throw new Error(data.error || 'Failed to list archived sessions');
-    return data.data!;
-}
-
-export async function createSession(payload: CreateSessionPayload): Promise<{ sessionId: number }> {
-    const { data } = await api.post<ApiResponse<{ sessionId: number }>>('/sessions', payload);
-    if (!data.success) throw new Error(data.error || 'Failed to create session');
-    return data.data!;
+export async function createSession(body: CreateSessionBody): Promise<number> {
+    const { data } = await api.post<Envelope<{ sessionId: number }>>('/sessions', body);
+    return data.data.sessionId;
 }
 
 export async function getSession(sessionId: number): Promise<SessionDetail> {
-    const { data } = await api.get<ApiResponse<SessionDetail>>(`/sessions/${sessionId}`);
-    if (!data.success) throw new Error(data.error || 'Failed to get session');
-    return data.data!;
+    const { data } = await api.get<Envelope<SessionDetail>>(`/sessions/${sessionId}`);
+    return data.data;
 }
 
-export async function endSession(sessionId: number): Promise<{ isActive: boolean }> {
-    const { data } = await api.post<ApiResponse<{ isActive: boolean }>>(
-        `/sessions/${sessionId}/end`,
-    );
-    if (!data.success) throw new Error(data.error || 'Failed to end session');
-    return data.data!;
-}
-
-export async function archiveSession(sessionId: number): Promise<void> {
-    const { data } = await api.post<ApiResponse<void>>(`/sessions/${sessionId}/archive`);
-    if (!data.success) throw new Error(data.error || 'Failed to archive session');
-}
-
-export async function addPlayer(
+export async function setSessionStatus(
     sessionId: number,
-    payload: AddPlayerPayload,
-): Promise<{ playerId: number }> {
-    const { data } = await api.post<ApiResponse<{ playerId: number }>>(
+    status: SessionStatus,
+): Promise<SessionSummary> {
+    const { data } = await api.patch<Envelope<SessionSummary>>(`/sessions/${sessionId}`, {
+        status,
+    });
+    return data.data;
+}
+
+export async function addPlayer(sessionId: number, body: AddPlayerBody): Promise<number> {
+    const { data } = await api.post<Envelope<{ playerId: number }>>(
         `/sessions/${sessionId}/players`,
-        payload,
+        body,
     );
-    if (!data.success) throw new Error(data.error || 'Failed to add player');
-    return data.data!;
+    return data.data.playerId;
 }
 
-export async function registerBuyIn(sessionId: number, payload: BuyInPayload): Promise<void> {
-    const { data } = await api.post<ApiResponse<void>>(`/sessions/${sessionId}/buy-in`, payload);
-    if (!data.success) throw new Error(data.error || 'Failed to register buy-in');
+export async function removePlayer(sessionId: number, playerId: number): Promise<void> {
+    await api.delete(`/sessions/${sessionId}/players/${playerId}`);
 }
 
-export async function registerCredit(sessionId: number, payload: CreditPayload): Promise<void> {
-    const { data } = await api.post<ApiResponse<void>>(`/sessions/${sessionId}/credit`, payload);
-    if (!data.success) throw new Error(data.error || 'Failed to register credit');
+export async function registerBuyIn(sessionId: number, body: BuyInBody): Promise<string> {
+    const { data } = await api.post<Envelope<{ entryId: string }>>(
+        `/sessions/${sessionId}/buy-ins`,
+        body,
+    );
+    return data.data.entryId;
 }
 
-export async function cashOut(
+export async function updateBuyIn(
     sessionId: number,
-    payload: CashOutPayload,
-): Promise<{ payout: number }> {
-    const { data } = await api.post<ApiResponse<{ payout: number }>>(
-        `/sessions/${sessionId}/cash-out`,
-        payload,
+    entryId: string,
+    amountCents: number,
+): Promise<void> {
+    await api.patch(`/sessions/${sessionId}/buy-ins/${entryId}`, { amountCents });
+}
+
+export async function deleteBuyIn(sessionId: number, entryId: string): Promise<void> {
+    await api.delete(`/sessions/${sessionId}/buy-ins/${entryId}`);
+}
+
+export async function registerCredit(sessionId: number, body: CreditBody): Promise<string> {
+    const { data } = await api.post<Envelope<{ creditId: string }>>(
+        `/sessions/${sessionId}/credits`,
+        body,
     );
-    if (!data.success) throw new Error(data.error || 'Failed to cash out');
-    return data.data!;
+    return data.data.creditId;
+}
+
+export async function updateCredit(
+    sessionId: number,
+    creditId: string,
+    amountCents: number,
+): Promise<void> {
+    await api.patch(`/sessions/${sessionId}/credits/${creditId}`, { amountCents });
+}
+
+export async function deleteCredit(sessionId: number, creditId: string): Promise<void> {
+    await api.delete(`/sessions/${sessionId}/credits/${creditId}`);
+}
+
+export async function cashOut(sessionId: number, body: CashOutBody): Promise<number> {
+    const { data } = await api.post<Envelope<{ payoutCents: number }>>(
+        `/sessions/${sessionId}/cash-outs`,
+        body,
+    );
+    return data.data.payoutCents;
+}
+
+export async function undoCashOut(sessionId: number, playerId: number): Promise<void> {
+    await api.delete(`/sessions/${sessionId}/cash-outs/${playerId}`);
 }

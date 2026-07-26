@@ -1,26 +1,28 @@
-import { ApiResponse } from '../types';
-import { LoginPayload, User } from '../types/auth';
+import type { AuthUser, LoginBody } from '@fnp/shared';
 
-import api from './apiClient';
+import api, { ApiClientError } from './apiClient';
 
-export async function me(): Promise<User | null> {
+interface Envelope<T> {
+    success: true;
+    data: T;
+}
+
+/** Returns `null` when nobody is signed in, rather than throwing on the expected 401. */
+export async function me(): Promise<AuthUser | null> {
     try {
-        const { data } = await api.get<ApiResponse<User>>('/auth/me');
-        if (!data.success) throw new Error('Failed to get user');
-        return data.data ?? null;
-    } catch (e: any) {
-        if (e?.response?.status === 401) return null;
-        throw e;
+        const { data } = await api.get<Envelope<AuthUser>>('/auth/me');
+        return data.data;
+    } catch (error) {
+        if (error instanceof ApiClientError && error.status === 401) return null;
+        throw error;
     }
 }
 
-export async function login(payload: LoginPayload): Promise<User | null> {
-    const { data } = await api.post<ApiResponse<User>>('/auth/login', payload);
-    if (!data.success) throw new Error('Failed to login');
-    return data.data ?? null;
+export async function login(body: LoginBody): Promise<AuthUser> {
+    const { data } = await api.post<Envelope<AuthUser>>('/auth/login', body);
+    return data.data;
 }
 
 export async function logout(): Promise<void> {
-    const { data } = await api.post<ApiResponse<void>>('/auth/logout');
-    if (!data.success) throw new Error('Failed to logout');
+    await api.post('/auth/logout');
 }
