@@ -1,60 +1,85 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { MoreVertical } from 'lucide-react';
 
-type Props = {
+import Button from './ui/Button';
+
+interface OverflowMenuProps {
     ariaLabel: string;
-    children: React.ReactNode;
+    children: ReactNode;
     buttonClassName?: string;
     panelClassName?: string;
-    buttonContent?: React.ReactNode;
-};
+    buttonContent?: ReactNode;
+}
 
+/**
+ * Q64: the panel had `role="menu"` but no focusable children handling and no way back to
+ * the trigger. Escape now returns focus to the button, and a click outside closes it —
+ * the old click-outside overlay existed but the `menuRef` on the archived page was never
+ * wired to anything.
+ */
 export default function OverflowMenu({
     ariaLabel,
     children,
     buttonClassName,
     panelClassName,
-    buttonContent = '⋮',
-}: Props) {
+    buttonContent,
+}: OverflowMenuProps) {
     const [open, setOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement | null>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        function onKey(e: KeyboardEvent) {
-            if (e.key === 'Escape') setOpen(false);
-        }
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, []);
+        if (!open) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            setOpen(false);
+            buttonRef.current?.focus();
+        };
+        const onPointerDown = (event: PointerEvent) => {
+            const target = event.target as Node;
+            if (panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
+            setOpen(false);
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('pointerdown', onPointerDown);
+        return () => {
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('pointerdown', onPointerDown);
+        };
+    }, [open]);
 
     return (
-        <div className="relative" ref={containerRef}>
-            <button
+        <div className="relative">
+            <Button
+                ref={buttonRef}
+                variant="secondary"
                 aria-label={ariaLabel}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                className={buttonClassName || 'btn btn-secondary px-3 py-2'}
-                onClick={() => setOpen(v => !v)}
+                className={buttonClassName}
+                onClick={() => setOpen(value => !value)}
             >
-                {buttonContent}
-            </button>
+                {buttonContent ?? <MoreVertical size={16} />}
+            </Button>
             <AnimatePresence>
                 {open && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                            className={
-                                panelClassName ||
-                                'absolute right-0 mt-2 w-60 card shadow-lg z-20 p-3 space-y-2'
-                            }
-                            role="menu"
-                        >
-                            {children}
-                        </motion.div>
-                        <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-                    </>
+                    <motion.div
+                        ref={panelRef}
+                        initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        role="menu"
+                        className={
+                            panelClassName ??
+                            'absolute right-0 mt-2 w-60 card shadow-lg z-20 p-3 space-y-2'
+                        }
+                        onClick={() => setOpen(false)}
+                    >
+                        {children}
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>
