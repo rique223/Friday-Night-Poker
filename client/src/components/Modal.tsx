@@ -76,7 +76,15 @@ export default function Modal({ title, open, onClose, children, maxWidth = 'md' 
 
         document.addEventListener('keydown', handleKeyDown);
         const focusTimer = window.setTimeout(() => {
-            panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+            // Prefer a field that asked for focus over the first thing in the DOM, which
+            // is the close button. When a buy-in is opened from a player's row the only
+            // thing left to say is the amount, so the caret belongs there — otherwise the
+            // operator taps the row, then has to tap again to start typing.
+            // React does not reflect `autoFocus` as an attribute, so a field opts in with
+            // `data-autofocus` instead.
+            const panel = panelRef.current;
+            const preferred = panel?.querySelector<HTMLElement>('[data-autofocus]');
+            (preferred ?? panel?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
         }, 0);
 
         return () => {

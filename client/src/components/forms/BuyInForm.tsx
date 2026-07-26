@@ -8,6 +8,12 @@ import { Button, Input, Select } from '../ui';
 interface BuyInFormProps {
     onSubmit: (payload: { playerId: number; amountCents: number }) => Promise<void>;
     players: Player[];
+    /**
+     * Set when the buy-in was started from a player's own row, which is the usual path.
+     * The dropdown then has nothing left to ask, so it is not rendered — re-asking who
+     * you just tapped is a question with a known answer.
+     */
+    player?: Player;
 }
 
 interface Values extends Record<string, unknown> {
@@ -15,14 +21,14 @@ interface Values extends Record<string, unknown> {
     amount: string;
 }
 
-export default function BuyInForm({ onSubmit, players }: BuyInFormProps) {
+export default function BuyInForm({ onSubmit, players, player }: BuyInFormProps) {
     const { t } = usePreferences();
     const options = players
-        .filter(player => player.isActive)
-        .map(player => ({ value: String(player.id), label: player.name }));
+        .filter(candidate => candidate.isActive)
+        .map(candidate => ({ value: String(candidate.id), label: candidate.name }));
 
     const { isSubmitting, handleSubmit, getFieldProps } = useForm<Values>({
-        initialValues: { playerId: '', amount: '' },
+        initialValues: { playerId: player ? String(player.id) : '', amount: '' },
         onSubmit: values =>
             onSubmit({ playerId: Number(values.playerId), amountCents: toCents(values.amount) }),
         validate: values => {
@@ -35,12 +41,14 @@ export default function BuyInForm({ onSubmit, players }: BuyInFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className="grid gap-3">
-            <Select
-                label={t('player')}
-                options={options}
-                placeholder={t('selectPlayer')}
-                {...getFieldProps('playerId')}
-            />
+            {!player && (
+                <Select
+                    label={t('player')}
+                    options={options}
+                    placeholder={t('selectPlayer')}
+                    {...getFieldProps('playerId')}
+                />
+            )}
             <Input
                 label={t('amount')}
                 type="number"
@@ -48,10 +56,14 @@ export default function BuyInForm({ onSubmit, players }: BuyInFormProps) {
                 step="0.01"
                 inputMode="decimal"
                 placeholder={t('amount')}
+                data-autofocus={player ? '' : undefined}
                 {...getFieldProps('amount')}
             />
+            {/* A control says what it does: this button registers a buy-in, it does not
+                "save". The action keeps that name from the row that opened it through to
+                the toast that confirms it. */}
             <Button type="submit" loading={isSubmitting}>
-                {t('save')}
+                {t('registerBuyIn')}
             </Button>
         </form>
     );
