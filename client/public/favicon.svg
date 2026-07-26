@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Friday Night Poker">
+    <rect width="64" height="64" rx="14" fill="#111214" />
+    <rect x="14" y="10" width="28" height="40" rx="5" fill="#f6f7f9" transform="rotate(-12 28 30)" />
+    <rect x="22" y="14" width="28" height="40" rx="5" fill="#ffffff" stroke="#111214" stroke-width="2" />
+    <path d="M36 24c-4 4-8 6-8 10a5 5 0 0 0 8 3.5A5 5 0 0 0 44 34c0-4-4-6-8-10z" fill="#7c5cff" />
+    <rect x="32" y="38" width="8" height="8" rx="1" fill="#7c5cff" opacity="0.35" />
+</svg>

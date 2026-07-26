@@ -1,13 +1,37 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Friday Night Poker</title>
-  </head>
-  <body>
-    <div id="root" class="min-h-screen"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#111214" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
+        <title>Friday Night Poker</title>
+        <script>
+            /*
+             * Q83: the theme used to be applied in a React effect, so a light-theme user
+             * got a dark flash on every page load. Setting the attribute here, before
+             * first paint, removes it. Kept inline and tiny on purpose — a separate file
+             * would be a second round trip and the flash would come back.
+             */
+            (function () {
+                try {
+                    var stored = localStorage.getItem('theme');
+                    var theme =
+                        stored === 'dark' || stored === 'light'
+                            ? stored
+                            : window.matchMedia('(prefers-color-scheme: dark)').matches
+                              ? 'dark'
+                              : 'light';
+                    document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <div id="root" class="min-h-screen"></div>
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
 </html>
