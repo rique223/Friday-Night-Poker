@@ -1,134 +1,90 @@
+import js from '@eslint/js';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
 import prettier from 'eslint-plugin-prettier';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
-import js from '@eslint/js';
 
 export default [
-    // Global ignores
     {
-        ignores: [
-            'node_modules/**',
-            'data/**',
-            '*.db',
-            '*.sqlite',
-            '*.sqlite3',
-            'coverage/**',
-            'dist/**',
-        ],
+        ignores: ['dist/**', 'node_modules/**', 'data/**'],
     },
 
-    // Base configuration
     js.configs.recommended,
 
-    // Main configuration for all JS files
     {
-        files: ['**/*.js'],
+        files: ['**/*.ts'],
         languageOptions: {
-            ecmaVersion: 'latest',
-            sourceType: 'module',
-            globals: {
-                ...globals.node,
-                ...globals.es2021,
+            parser: tsParser,
+            parserOptions: {
+                ecmaVersion: 'latest',
+                sourceType: 'module',
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
             },
+            globals: { ...globals.node, ...globals.es2021 },
         },
         plugins: {
+            '@typescript-eslint': tseslint,
             import: importPlugin,
             'simple-import-sort': simpleImportSort,
             prettier,
         },
         settings: {
             'import/resolver': {
-                node: {
-                    extensions: ['.js', '.json'],
-                },
+                typescript: { project: './tsconfig.json' },
             },
         },
         rules: {
-            // Import sorting and organization
+            // `tsc` already reports undefined identifiers, and `no-undef` does not
+            // understand type-only namespaces, so it only ever produced false positives.
+            'no-undef': 'off',
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+            ],
+            '@typescript-eslint/no-explicit-any': 'error',
+            '@typescript-eslint/consistent-type-imports': [
+                'error',
+                { prefer: 'type-imports', fixStyle: 'separate-type-imports' },
+            ],
+            '@typescript-eslint/no-floating-promises': 'error',
+
             'simple-import-sort/imports': [
                 'error',
                 {
                     groups: [
-                        // Side effect imports first
                         ['^\\u0000'],
-                        // Node.js builtins
-                        [
-                            '^(assert|buffer|child_process|cluster|crypto|dgram|dns|domain|events|fs|http|https|module|net|os|path|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|tty|url|util|vm|zlib|freelist|v8|process|async_hooks|http2|perf_hooks)(/.*|$)',
-                        ],
-                        // External packages
+                        ['^node:'],
                         ['^[a-z]', '^@[a-z]'],
-                        // Internal packages/modules
-                        ['^#', '^@/', '^~/'],
-                        // Parent imports
                         ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
-                        // Other relative imports
                         ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
                     ],
                 },
             ],
             'simple-import-sort/exports': 'error',
-
-            // Import rules
             'import/first': 'error',
             'import/newline-after-import': 'error',
             'import/no-duplicates': 'error',
             'import/no-cycle': 'error',
             'import/no-self-import': 'error',
-            'import/extensions': ['error', 'ignorePackages'],
 
-            // General JavaScript rules
-            'no-console': 'off', // Console logging is common in Node.js
+            'no-console': 'off',
             'no-debugger': 'error',
-            'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
             'prefer-const': 'error',
             'no-var': 'error',
             'object-shorthand': 'error',
-            'prefer-arrow-callback': 'error',
             'prefer-template': 'error',
-            'template-curly-spacing': 'error',
-            'arrow-spacing': 'error',
-            'comma-dangle': ['error', 'always-multiline'],
-            semi: ['error', 'always'],
-            quotes: ['error', 'single', { avoidEscape: true }],
-            'no-trailing-spaces': 'error',
-            'eol-last': 'error',
-            'space-before-function-paren': ['error', { anonymous: 'always', named: 'never' }],
-
-            // Error handling
             'no-throw-literal': 'error',
-            'prefer-promise-reject-errors': 'error',
-
-            // Security
-            'no-eval': 'error',
-            'no-implied-eval': 'error',
-            'no-new-func': 'error',
-
-            // Best practices
-            curly: ['error', 'all'],
             eqeqeq: ['error', 'always'],
-            'no-else-return': 'error',
-            'no-useless-return': 'error',
-            'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
-            'object-curly-spacing': ['error', 'always'],
-            'array-bracket-spacing': ['error', 'never'],
-            'computed-property-spacing': ['error', 'never'],
+            curly: ['error', 'multi-line'],
 
-            // Prettier integration
             'prettier/prettier': 'error',
         },
     },
 
-    // Configuration files can have more relaxed rules
-    {
-        files: ['**/*.config.js', '**/eslint.config.js'],
-        rules: {
-            'no-console': 'off',
-            'import/no-extraneous-dependencies': 'off',
-        },
-    },
-
-    // Apply prettier config last to override formatting rules
     prettierConfig,
 ];
