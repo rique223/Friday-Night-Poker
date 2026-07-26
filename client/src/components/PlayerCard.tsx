@@ -172,10 +172,13 @@ const PlayerCard = memo(function PlayerCard({
                 )}
             </div>
 
+            {/* `min-h-8` on every row keeps the rhythm even: rows carrying edit and delete
+                controls used to stand taller than credit rows, which have none, so an
+                equal gap between them read as unequal. */}
             {showMovements && (
                 <ul className="border-t border-border pt-3 space-y-2 text-xs">
                     {player.buyIns.map(entry => (
-                        <li key={entry.id} className="flex items-center gap-2">
+                        <li key={entry.id} className="flex items-center gap-2 min-h-8">
                             <span className="flex-1 min-w-0">
                                 <strong className="money">
                                     {formatCurrency(entry.amountCents)}
@@ -219,7 +222,7 @@ const PlayerCard = memo(function PlayerCard({
                     ))}
 
                     {player.credits.map(entry => (
-                        <li key={entry.id} className="flex items-center gap-2">
+                        <li key={entry.id} className="flex items-center gap-2 min-h-8">
                             <span className="flex-1 min-w-0">
                                 <strong className="money text-receive">
                                     {formatCurrency(entry.amountCents)}

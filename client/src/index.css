@@ -136,6 +136,12 @@ body {
     transform: translateY(0);
 }
 
+/* Small controls were still 40px tall, which inflated any list row carrying one and left
+   rows without buttons looking oddly tight next to them. */
+.btn-sm {
+    min-height: 32px;
+}
+
 .btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;

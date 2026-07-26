@@ -3,7 +3,12 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../utils/cn';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'danger';
+    /**
+     * `ghostDanger` is the resting state of a destructive control: it reads as quiet
+     * until hovered or focused. Rows full of solid red delete buttons made deletion the
+     * loudest thing on the screen, which is backwards.
+     */
+    variant?: 'primary' | 'secondary' | 'danger' | 'ghostDanger';
     size?: 'sm' | 'md' | 'lg';
     loading?: boolean;
 }
@@ -18,9 +23,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             primary: 'btn-primary',
             secondary: 'btn-secondary',
             danger: 'btn-danger',
+            ghostDanger: 'btn-ghost-danger',
         };
         const sizeClasses = {
-            sm: 'px-2 py-1 text-sm',
+            sm: 'btn-sm px-2 py-1 text-sm',
             md: 'px-3 py-2',
             lg: 'px-4 py-3 text-lg',
         };
