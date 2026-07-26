@@ -197,7 +197,36 @@ body {
     box-shadow: 0 0 0 3px rgb(from var(--color-text) r g b / 0.18);
 }
 
+/*
+ * The native caret renders hard against the right border and cannot be repositioned, so
+ * it is suppressed and drawn as a real chevron inside the control, which also lets it
+ * inherit the text colour in both themes.
+ */
+.select {
+    appearance: none;
+    padding-right: 38px;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.select:hover:not(:disabled) {
+    border-color: rgb(from var(--color-text) r g b / 0.35);
+    background: var(--color-raised);
+}
+
+.select-caret {
+    pointer-events: none;
+    transition: transform 0.15s ease;
+}
+
+.select-shell:hover .select-caret {
+    transform: translateY(1px);
+}
+
 button:not(:disabled),
+select:not(:disabled),
 [role='button']:not(:disabled) {
     cursor: pointer;
 }
