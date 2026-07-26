@@ -1,68 +1,60 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import type { SessionSummary } from '@fnp/shared';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 
+import ConfirmDialog from '../components/ConfirmDialog';
 import HeaderActions from '../components/HeaderActions';
 import SessionBrowser from '../components/SessionBrowser';
-import SessionListSkeleton from '../components/SessionListSkeleton';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
+import { Button, Input } from '../components/ui';
+import { PAGE_SIZE } from '../constants';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useForm } from '../hooks/useForm';
-import { useSessions } from '../hooks/useSessions';
-import { CreateSessionPayload, Session } from '../types';
+import { useSessionList } from '../hooks/useSessions';
+import type { GroupBy } from '../i18n/types';
+
+import { useNavigateToSession } from './useNavigateToSession';
+
+interface Values extends Record<string, unknown> {
+    createdBy: string;
+}
 
 export default function SessionListPage() {
     const { t } = usePreferences();
-    const navigate = useNavigate();
-    const [filter, setFilter] = useState('');
+    const goToSession = useNavigateToSession();
 
-    const { sessions, loading, page, total, loadSessions, createSession, archiveSession } =
-        useSessions();
+    const [page, setPage] = useState(1);
+    const [groupBy, setGroupBy] = useState<GroupBy>('week');
+    const [queryInput, setQueryInput] = useState('');
+    const [appliedQuery, setAppliedQuery] = useState('');
+    const [pendingArchive, setPendingArchive] = useState<SessionSummary | null>(null);
 
-    const headerRef = useRef<HTMLDivElement | null>(null);
-    const [availableHeight, setAvailableHeight] = useState<number>(0);
+    const {
+        page: result,
+        isLoading,
+        createSession,
+        archiveSession,
+    } = useSessionList({
+        status: 'all',
+        page,
+        pageSize: PAGE_SIZE,
+        q: appliedQuery,
+        groupBy,
+    });
 
-    const hasSessions = sessions && sessions.length > 0;
-    const isCentered = !hasSessions;
-
-    const { values, isSubmitting, handleSubmit, getFieldProps } = useForm<CreateSessionPayload>({
-        initialValues: {
-            createdBy: '',
-        },
-        onSubmit: async data => {
-            await createSession(data);
+    const { isSubmitting, handleSubmit, getFieldProps, reset } = useForm<Values>({
+        initialValues: { createdBy: '' },
+        onSubmit: async values => {
+            await createSession.mutateAsync(values.createdBy);
+            reset();
+            setPage(1);
         },
     });
 
-    useEffect(() => {
-        function updateAvailableHeight() {
-            const headerHeight = headerRef.current?.offsetHeight ?? 0;
-            const paddingY = 48; // p-6 top+bottom
-            setAvailableHeight(Math.max(0, window.innerHeight - headerHeight - paddingY));
-        }
-        updateAvailableHeight();
-        window.addEventListener('resize', updateAvailableHeight);
-        return () => window.removeEventListener('resize', updateAvailableHeight);
-    }, []);
-
-    useEffect(() => {
-        loadSessions(1, 10, '');
-    }, [loadSessions]);
-
-    const handlePageChange = (newPage: number) => {
-        loadSessions(newPage, 10, filter);
-    };
-
-    const handleFilter = (query: string) => {
-        setFilter(query);
-        loadSessions(1, 10, query);
-    };
-
-    const handleSelectSession = (session: Session) => {
-        navigate(`/sessions/${session.id}`);
-    };
+    function applyFilter() {
+        setAppliedQuery(queryInput);
+        setPage(1);
+    }
 
     return (
         <motion.div
@@ -70,99 +62,83 @@ export default function SessionListPage() {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto min-h-screen flex flex-col p-6"
         >
-            <header ref={headerRef} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="w-full flex items-center justify-between gap-2">
-                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">
-                        Friday Night Poker
-                    </h1>
-                    <HeaderActions showLogout />
-                </div>
+            <header className="flex items-center justify-between gap-2">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">
+                    Friday Night Poker
+                </h1>
+                <HeaderActions showLogout />
             </header>
 
-            <main className={`flex-1 ${isCentered ? '' : 'mt-6'}`}>
-                {isCentered ? (
-                    <div
-                        className="grid place-items-center"
-                        style={{ minHeight: `${availableHeight}px` }}
-                    >
-                        <motion.section
-                            layout
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ type: 'spring', bounce: 0.15, duration: 0.45 }}
-                            className="card p-5 space-y-4 w-full"
+            {/*
+             * Q55/Q59: the page used to swap between a centred "create your first session"
+             * layout and the list based purely on `sessions.length`. Filtering to zero
+             * matches flipped it to the centred layout, which does not render the filter —
+             * so there was no way to clear it short of reloading. And because `loading`
+             * started `false`, the very first paint always showed that empty state before
+             * the list popped in. Both layouts are gone: one layout, with the empty state
+             * living inside the browser where the filter stays reachable.
+             */}
+            <main className="flex-1 mt-6 space-y-6">
+                <section className="card p-5">
+                    <form onSubmit={handleSubmit} className="flex gap-3 flex-col sm:flex-row">
+                        <Input
+                            id="createdBy"
+                            placeholder={t('yourName')}
+                            className="flex-1"
+                            aria-label={t('yourName')}
+                            {...getFieldProps('createdBy')}
+                        />
+                        <Button
+                            type="submit"
+                            loading={isSubmitting}
+                            className="inline-flex items-center gap-2"
                         >
-                            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                                <Input
-                                    id="createdBy"
-                                    placeholder={t('yourName')}
-                                    className="w-full"
-                                    {...getFieldProps('createdBy')}
-                                />
-                                <Button
-                                    type="submit"
-                                    loading={isSubmitting}
-                                    className="w-full inline-flex items-center gap-2"
-                                >
-                                    <Plus size={16} /> {t('createSession')}
-                                </Button>
-                            </form>
-                        </motion.section>
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        <motion.section
-                            layout
-                            initial={{ y: 40, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ type: 'spring', bounce: 0.15, duration: 0.45 }}
-                            className="card p-5 space-y-4"
-                        >
-                            <form
-                                onSubmit={handleSubmit}
-                                className="flex gap-3 flex-col sm:flex-row"
-                            >
-                                <Input
-                                    id="createdBy"
-                                    placeholder={t('yourName')}
-                                    className="flex-1"
-                                    {...getFieldProps('createdBy')}
-                                />
-                                <Button
-                                    type="submit"
-                                    loading={isSubmitting}
-                                    className="inline-flex items-center gap-2"
-                                >
-                                    <Plus size={16} /> {t('createSession')}
-                                </Button>
-                            </form>
-                        </motion.section>
+                            <Plus size={16} /> {t('createSession')}
+                        </Button>
+                    </form>
+                </section>
 
-                        <motion.section
-                            layout
-                            initial={{ y: 40, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ type: 'spring', bounce: 0.15, duration: 0.45 }}
-                            className="card p-5 space-y-4"
-                        >
-                            {loading ? (
-                                <SessionListSkeleton />
-                            ) : (
-                                <SessionBrowser
-                                    sessions={sessions}
-                                    onPage={handlePageChange}
-                                    onFilter={handleFilter}
-                                    onSelect={handleSelectSession}
-                                    page={page}
-                                    pageSize={10}
-                                    total={total}
-                                    showControls={!loading && hasSessions}
-                                />
-                            )}
-                        </motion.section>
-                    </div>
-                )}
+                <section className="card p-5">
+                    <SessionBrowser
+                        groups={result?.groups ?? []}
+                        groupBy={groupBy}
+                        onGroupByChange={value => {
+                            setGroupBy(value);
+                            setPage(1);
+                        }}
+                        query={queryInput}
+                        onQueryChange={setQueryInput}
+                        onSubmitFilter={applyFilter}
+                        page={result?.page ?? page}
+                        pageSize={result?.pageSize ?? PAGE_SIZE}
+                        totalGroups={result?.totalGroups ?? 0}
+                        onPageChange={setPage}
+                        onSelect={goToSession}
+                        onArchive={setPendingArchive}
+                        isLoading={isLoading}
+                        isMutating={archiveSession.isPending}
+                        emptyTitle={t('noSessionsYet')}
+                        emptyHint={t('noSessionsYetHint')}
+                    />
+                </section>
             </main>
+
+            {/* Q11: archiving used to be one unconfirmed click with no undo. */}
+            <ConfirmDialog
+                open={pendingArchive !== null}
+                title={t('confirmArchiveTitle')}
+                body={t('confirmArchiveBody')}
+                confirmLabel={t('deleteArchive')}
+                destructive
+                busy={archiveSession.isPending}
+                onCancel={() => setPendingArchive(null)}
+                onConfirm={() => {
+                    if (!pendingArchive) return;
+                    archiveSession.mutate(pendingArchive.id, {
+                        onSettled: () => setPendingArchive(null),
+                    });
+                }}
+            />
         </motion.div>
     );
 }

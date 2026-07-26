@@ -1,117 +1,109 @@
-import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import type { SessionSummary } from '@fnp/shared';
+import { ArrowLeft } from 'lucide-react';
 
-import LangCurrencySwitcher from '../components/LangCurrencySwitcher';
+import ConfirmDialog from '../components/ConfirmDialog';
+import HeaderActions from '../components/HeaderActions';
 import SessionBrowser from '../components/SessionBrowser';
-import ThemeToggle from '../components/ThemeToggle';
+import { Button } from '../components/ui';
+import { PAGE_SIZE } from '../constants';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { listArchived } from '../services/sessionService';
+import { useSessionList } from '../hooks/useSessions';
+import type { GroupBy } from '../i18n/types';
 
+import { useNavigateToSession } from './useNavigateToSession';
+
+/**
+ * Q68: this page used to reimplement `useSessions` from scratch — duplicated fetch,
+ * loading, page and total state typed as `useState<any[]>`, its own `refresh()` with a
+ * missing effect dependency, and a hand-rolled mobile overflow menu duplicating
+ * `HeaderActions` (including a `menuRef` that was assigned but never used).
+ *
+ * Q58: it also rendered `SessionBrowser` without `onFilter`, so typing a name and pressing
+ * "Filtrar" did nothing, ever — and pagination dropped the query. Both come free now that
+ * the shared hook and component drive the page.
+ */
 export default function ArchivedSessionsPage() {
     const { t } = usePreferences();
-    const [sessions, setSessions] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
     const navigate = useNavigate();
-    const hasSessions = sessions.length > 0;
-    const menuRef = useRef<HTMLDivElement>(null);
-    const [menuOpen, setMenuOpen] = useState(false);
+    const goToSession = useNavigateToSession();
 
-    async function refresh(p = 1) {
-        setLoading(true);
-        try {
-            const res = await listArchived({ page: p, pageSize: 10 });
-            setSessions(res.items);
-            setPage(p);
-            setTotal(res.total || 0);
-        } catch (e: any) {
-            toast.error(e?.message || t('failedLoadArchived'));
-        } finally {
-            setLoading(false);
-        }
-    }
+    const [page, setPage] = useState(1);
+    const [groupBy, setGroupBy] = useState<GroupBy>('week');
+    const [queryInput, setQueryInput] = useState('');
+    const [appliedQuery, setAppliedQuery] = useState('');
+    const [pendingRestore, setPendingRestore] = useState<SessionSummary | null>(null);
 
-    useEffect(() => {
-        refresh(1);
-    }, []);
+    const {
+        page: result,
+        isLoading,
+        restoreSession,
+    } = useSessionList({
+        status: 'archived',
+        page,
+        pageSize: PAGE_SIZE,
+        q: appliedQuery,
+        groupBy,
+    });
 
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-6">
-            <header className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <button className="btn btn-secondary px-3 py-2" onClick={() => navigate('/')}>
-                        ← {t('back')}
-                    </button>
-                </div>
-
-                {/* Mobile actions */}
-                <div className="flex items-center gap-2 sm:hidden">
-                    <ThemeToggle />
-                    <div className="relative" ref={menuRef}>
-                        <button
-                            aria-label={t('menu')}
-                            className="btn btn-secondary px-3 py-2"
-                            onClick={() => setMenuOpen(v => !v)}
-                        >
-                            ⋮
-                        </button>
-                        <AnimatePresence>
-                            {menuOpen && (
-                                <>
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                        className="absolute right-0 mt-2 w-60 card shadow-lg z-20 p-3 space-y-2"
-                                    >
-                                        <LangCurrencySwitcher />
-                                    </motion.div>
-                                    <div
-                                        className="fixed inset-0 z-10"
-                                        onClick={() => setMenuOpen(false)}
-                                    />
-                                </>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-
-                {/* Desktop actions */}
-                <div className="hidden sm:flex items-center gap-2">
-                    <LangCurrencySwitcher />
-                    <ThemeToggle />
-                </div>
+            <header className="flex items-center justify-between gap-2">
+                <Button
+                    variant="secondary"
+                    onClick={() => navigate('/')}
+                    className="inline-flex items-center gap-2"
+                >
+                    <ArrowLeft size={16} /> {t('back')}
+                </Button>
+                <HeaderActions showArchived={false} showLogout />
             </header>
 
             <section className="card p-5 space-y-4">
                 <h1 className="text-2xl font-semibold tracking-tight">{t('archivedSessions')}</h1>
 
-                {!loading && !hasSessions && (
-                    <div className="grid place-items-center min-h-[180px]">
-                        <div className="text-center space-y-1">
-                            <div className="text-base" style={{ color: 'var(--text)' }}>
-                                {t('noArchivedSessions')}
-                            </div>
-                            <div className="text-sm text-[var(--text-dim)]">
-                                {t('noArchivedSessionsHint')}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 <SessionBrowser
-                    sessions={sessions}
-                    onPage={p => refresh(p)}
-                    onSelect={s => navigate(`/sessions/${s.id}`)}
-                    page={page}
-                    pageSize={10}
-                    total={total}
-                    showControls={hasSessions}
+                    groups={result?.groups ?? []}
+                    groupBy={groupBy}
+                    onGroupByChange={value => {
+                        setGroupBy(value);
+                        setPage(1);
+                    }}
+                    query={queryInput}
+                    onQueryChange={setQueryInput}
+                    onSubmitFilter={() => {
+                        setAppliedQuery(queryInput);
+                        setPage(1);
+                    }}
+                    page={result?.page ?? page}
+                    pageSize={result?.pageSize ?? PAGE_SIZE}
+                    totalGroups={result?.totalGroups ?? 0}
+                    onPageChange={setPage}
+                    onSelect={goToSession}
+                    onRestore={setPendingRestore}
+                    isLoading={isLoading}
+                    isMutating={restoreSession.isPending}
+                    emptyTitle={t('noArchivedSessions')}
+                    emptyHint={t('noArchivedSessionsHint')}
                 />
             </section>
+
+            {/* Q11: there was no unarchive endpoint or UI at all — archiving was one-way. */}
+            <ConfirmDialog
+                open={pendingRestore !== null}
+                title={t('confirmRestoreTitle')}
+                body={t('confirmRestoreBody')}
+                confirmLabel={t('restore')}
+                busy={restoreSession.isPending}
+                onCancel={() => setPendingRestore(null)}
+                onConfirm={() => {
+                    if (!pendingRestore) return;
+                    restoreSession.mutate(pendingRestore.id, {
+                        onSettled: () => setPendingRestore(null),
+                    });
+                }}
+            />
         </div>
     );
 }
