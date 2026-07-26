@@ -1,41 +1,36 @@
 {
-  "name": "friday-night-poker",
-  "version": "1.0.0",
-  "description": "A Friday Night Poker application with React frontend and Express backend",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
-    "lint": "concurrently \"npm run lint --prefix client\" \"npm run lint --prefix server\"",
-    "lint:fix": "concurrently \"npm run lint:fix --prefix client\" \"npm run lint:fix --prefix server\"",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
-    "build": "npm run build --prefix client",
-    "type-check": "npm run type-check --prefix client"
-  },
-  "workspaces": [
-    "client",
-    "server"
-  ],
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "prettier": "^3.6.2"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/friday-night-poker.git"
-  },
-  "keywords": [
-    "poker",
-    "react",
-    "express",
-    "typescript",
-    "sqlite"
-  ],
-  "license": "MIT"
+    "name": "friday-night-poker",
+    "version": "1.0.0",
+    "description": "Poker night bookkeeping app — React + Express + SQLite",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+        "shared",
+        "client",
+        "server"
+    ],
+    "scripts": {
+        "build": "yarn workspace @fnp/shared build && yarn workspace client build",
+        "dev": "yarn workspace @fnp/shared build && concurrently -n server,client -c blue,magenta \"yarn workspace server dev\" \"yarn workspace client dev\"",
+        "start": "yarn workspace server start",
+        "lint": "yarn workspaces run lint",
+        "lint:fix": "yarn workspaces run lint:fix",
+        "type-check": "yarn workspaces run type-check",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "openapi": "yarn workspace @fnp/shared openapi",
+        "create-user": "yarn workspace server create-user",
+        "prepare": "git config core.hooksPath .githooks || true"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2",
+        "prettier": "^3.6.2"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "license": "MIT",
+    "resolutions": {
+        "@types/node": "24.13.3"
+    }
 }

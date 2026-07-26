@@ -1,5 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment
 .env
 .env.*
-*.sqlite*
-node_modules/
+!.env.example
+
+# Database (SQLite + WAL sidecars)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+server/data/
+
+# Logs
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
