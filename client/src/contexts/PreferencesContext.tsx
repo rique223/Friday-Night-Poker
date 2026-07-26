@@ -1,280 +1,146 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+    createContext,
+    type ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from 'react';
+import { fromCents } from '@fnp/shared';
 
-import { Currency, Language, TranslationKey, TranslationKeys } from '../types';
+import { STORAGE_KEYS } from '../constants';
+import {
+    type Currency,
+    dictionaries,
+    isCurrency,
+    isLanguage,
+    type Language,
+    LOCALE_TAGS,
+    type TranslationKey,
+} from '../i18n';
 
-type Dictionaries = Record<Language, TranslationKeys>;
+export type Theme = 'dark' | 'light';
 
-const dictionaries: Dictionaries = {
-    pt: {
-        createSession: 'Criar Sessão',
-        yourName: 'Seu nome',
-        filterCreator: 'Filtrar por nome do criador',
-        filter: 'Filtrar',
-        week: 'Semana',
-        month: 'Mês',
-        year: 'Ano',
-        archived: 'Arquivadas',
-        ended: 'Encerrada',
-        page: 'Página',
-        prev: 'Anterior',
-        next: 'Próxima',
-        addPlayer: 'Adicionar Jogador',
-        name: 'Nome',
-        initialBuyIn: 'Compra inicial',
-        add: 'Adicionar',
-        registerBuyIn: 'Registrar Buy-in',
-        registerCredit: 'Registrar Crédito',
-        players: 'Jogadores',
-        totalBuyIns: 'Buy-ins',
-        credits: 'Créditos',
-        netBalance: 'Saldo',
-        cashOut: 'Cash out',
-        selectPlayer: 'Selecionar jogador',
-        amount: 'Valor',
-        save: 'Salvar',
-        provider: 'Fornecedor',
-        receiver: 'Recebedor',
-        finalChips: 'Fichas finais',
-        confirmCashOut: 'Confirmar Encerramento',
-        endSession: 'Encerrar Sessão',
-        deleteArchive: 'Excluir (Arquivar)',
-        payout: 'Pagamento',
-        session: 'Sessão',
-        inactive: 'Inativo',
-        active: 'Ativo',
-        loading: 'Carregando…',
-        menu: 'Menu',
-        sessionActions: 'Ações da sessão',
-        player: 'Jogador(a)',
-        playerAdded: 'Jogador adicionado',
-        buyInRegistered: 'Compra registrada',
-        creditRegistered: 'Crédito registrado',
-        sessionEnded: 'Sessão encerrada',
-        failedLoadSession: 'Falha ao carregar sessão',
-        failedAddPlayer: 'Falha ao adicionar jogador',
-        failedRegisterBuyIn: 'Falha ao registrar compra',
-        failedRegisterCredit: 'Falha ao registrar crédito',
-        failedCashOut: 'Falha ao realizar o cash out',
-        failedEndSession: 'Falha ao encerrar sessão',
-        confirmEndSession: 'Encerrar esta sessão?',
-        cashOutAllFirst: 'Realize o cash out de todos os jogadores antes de encerrar a sessão',
-        failedLoadSessions: 'Falha ao carregar sessões',
-        failedCreateSession: 'Falha ao criar sessão',
-        failedLoadArchived: 'Falha ao carregar sessões arquivadas',
-        sessionCreated: 'Sessão criada',
-        archivedSessions: 'Sessões Arquivadas',
-        noArchivedSessions: 'Sem sessões arquivadas ainda',
-        noArchivedSessionsHint: 'Quando você arquivar sessões, elas aparecerão aqui.',
-        back: 'Voltar',
-        orderedNewest: 'Sessões são ordenadas da mais recente para a mais antiga em cada grupo.',
-        of: 'de',
-        groupBy: 'Agrupar por',
-        currencyBRL: 'Real',
-        currencyUSD: 'Dólar',
-        currencyEUR: 'Euro',
-        login: 'Login',
-        emailOrUsername: 'E-mail ou usuário',
-        password: 'Senha',
-        enterCredentials: 'Insira suas credenciais para continuar.',
-        emailOrUsernameRequired: 'E-mail ou usuário é obrigatório',
-        passwordRequired: 'Senha é obrigatória',
-    },
-    en: {
-        createSession: 'Create Session',
-        yourName: 'Your name',
-        filterCreator: 'Filter by creator name',
-        filter: 'Filter',
-        week: 'Week',
-        month: 'Month',
-        year: 'Year',
-        archived: 'Archived',
-        ended: 'Ended',
-        page: 'Page',
-        prev: 'Prev',
-        next: 'Next',
-        addPlayer: 'Add Player',
-        name: 'Name',
-        initialBuyIn: 'Initial buy-in',
-        add: 'Add',
-        registerBuyIn: 'Register Buy-in',
-        registerCredit: 'Register Credit',
-        players: 'Players',
-        totalBuyIns: 'Total Buy-ins',
-        credits: 'Credits',
-        netBalance: 'NetBalance',
-        cashOut: 'Cash Out',
-        selectPlayer: 'Select player',
-        amount: 'Amount',
-        save: 'Save',
-        provider: 'Provider',
-        receiver: 'Receiver',
-        finalChips: 'Final chip count',
-        confirmCashOut: 'Confirm Cash Out',
-        endSession: 'End Session',
-        deleteArchive: 'Delete (Archive)',
-        payout: 'Payout',
-        session: 'Session',
-        inactive: 'Inactive',
-        active: 'Active',
-        loading: 'Loading…',
-        menu: 'Menu',
-        sessionActions: 'Session actions',
-        player: 'Player',
-        playerAdded: 'Player added',
-        buyInRegistered: 'Buy-in registered',
-        creditRegistered: 'Credit registered',
-        sessionEnded: 'Session ended',
-        failedLoadSession: 'Failed to load session',
-        failedAddPlayer: 'Failed to add player',
-        failedRegisterBuyIn: 'Failed to register buy-in',
-        failedRegisterCredit: 'Failed to register credit',
-        failedCashOut: 'Failed to cash out',
-        failedEndSession: 'Failed to end session',
-        confirmEndSession: 'End this session?',
-        cashOutAllFirst: 'Cash out all players before ending the session',
-        failedLoadSessions: 'Failed to load sessions',
-        failedCreateSession: 'Failed to create session',
-        failedLoadArchived: 'Failed to load archived sessions',
-        sessionCreated: 'Session created',
-        archivedSessions: 'Archived Sessions',
-        noArchivedSessions: 'No archived sessions yet',
-        noArchivedSessionsHint: 'When you archive sessions, they will show up here.',
-        back: 'Back',
-        orderedNewest: 'Sessions are ordered newest first within each group.',
-        of: 'of',
-        groupBy: 'Group by',
-        currencyBRL: 'Real',
-        currencyUSD: 'Dollar',
-        currencyEUR: 'Euro',
-        login: 'Login',
-        emailOrUsername: 'Email or username',
-        password: 'Password',
-        enterCredentials: 'Enter your credentials to continue.',
-        emailOrUsernameRequired: 'Email or username is required',
-        passwordRequired: 'Password is required',
-    },
-    es: {
-        createSession: 'Crear Sesión',
-        yourName: 'Tu nombre',
-        filterCreator: 'Filtrar por nombre del creador',
-        filter: 'Filtrar',
-        week: 'Semana',
-        month: 'Mes',
-        year: 'Año',
-        archived: 'Archivadas',
-        ended: 'Finalizada',
-        page: 'Página',
-        prev: 'Anterior',
-        next: 'Siguiente',
-        addPlayer: 'Agregar Jugador',
-        name: 'Nombre',
-        initialBuyIn: 'Compra inicial',
-        add: 'Agregar',
-        registerBuyIn: 'Registrar Buy-in',
-        registerCredit: 'Registrar Crédito',
-        players: 'Jugadores',
-        totalBuyIns: 'Total de Compras',
-        credits: 'Créditos',
-        netBalance: 'Balance',
-        cashOut: 'Retirar',
-        selectPlayer: 'Seleccionar jugador',
-        amount: 'Importe',
-        save: 'Guardar',
-        provider: 'Proveedor',
-        receiver: 'Receptor',
-        finalChips: 'Fichas finales',
-        confirmCashOut: 'Confirmar Retiro',
-        endSession: 'Finalizar Sesión',
-        deleteArchive: 'Eliminar (Archivar)',
-        payout: 'Pago',
-        session: 'Sesión',
-        inactive: 'Inactivo',
-        active: 'Activo',
-        loading: 'Cargando…',
-        menu: 'Menú',
-        sessionActions: 'Acciones de la sesión',
-        player: 'Jugador',
-        playerAdded: 'Jugador agregado',
-        buyInRegistered: 'Compra registrada',
-        creditRegistered: 'Crédito registrado',
-        sessionEnded: 'Sesión finalizada',
-        failedLoadSession: 'Error al cargar la sesión',
-        failedAddPlayer: 'Error al agregar jugador',
-        failedRegisterBuyIn: 'Error al registrar compra',
-        failedRegisterCredit: 'Error al registrar crédito',
-        failedCashOut: 'Error al retirar',
-        failedEndSession: 'Error al finalizar sesión',
-        confirmEndSession: '¿Finalizar esta sesión?',
-        cashOutAllFirst: 'Retira a todos los jugadores antes de finalizar la sesión',
-        failedLoadSessions: 'Error al cargar sesiones',
-        failedCreateSession: 'Error al crear la sesión',
-        failedLoadArchived: 'Error al cargar sesiones archivadas',
-        sessionCreated: 'Sesión creada',
-        archivedSessions: 'Sesiones Archivadas',
-        noArchivedSessions: 'Aún no hay sesiones archivadas',
-        noArchivedSessionsHint: 'Cuando archives sesiones, aparecerán aquí.',
-        back: 'Volver',
-        orderedNewest:
-            'Las sesiones están ordenadas de la más reciente a la más antigua dentro de cada grupo.',
-        of: 'de',
-        groupBy: 'Agrupar por',
-        currencyBRL: 'Real',
-        currencyUSD: 'Dólar',
-        currencyEUR: 'Euro',
-        login: 'Iniciar sesión',
-        emailOrUsername: 'Correo o usuario',
-        password: 'Contraseña',
-        enterCredentials: 'Ingresa tus credenciales para continuar.',
-        emailOrUsernameRequired: 'Correo o usuario es obligatorio',
-        passwordRequired: 'La contraseña es obligatoria',
-    },
-};
-
-type Context = {
+interface PreferencesValue {
     lang: Language;
-    setLang: (l: Language) => void;
+    setLang: (lang: Language) => void;
     currency: Currency;
-    setCurrency: (c: Currency) => void;
+    setCurrency: (currency: Currency) => void;
+    theme: Theme;
+    toggleTheme: () => void;
     t: (key: TranslationKey) => string;
-    formatCurrency: (value: number) => string;
-};
+    /** Formats an integer-cent amount for display. */
+    formatCurrency: (cents: number) => string;
+    formatDateTime: (iso: string) => string;
+    formatGroupLabel: (startDate: string, groupBy: 'week' | 'month' | 'year') => string;
+}
 
-const PreferencesContext = createContext<Context | undefined>(undefined);
+const PreferencesContext = createContext<PreferencesValue | undefined>(undefined);
 
-export function PreferencesProvider({ children }: { children: React.ReactNode }) {
-    const [lang, setLang] = useState<Language>(
-        () => (localStorage.getItem('lang') as Language) || 'pt',
-    );
-    const [currency, setCurrency] = useState<Currency>(
-        () => (localStorage.getItem('currency') as Currency) || 'BRL',
-    );
+/**
+ * Reads the persisted theme, tolerating anything unexpected in storage.
+ *
+ * Q84 confirmed the three separate keys are intended, so they stay — but an unreadable
+ * value now falls back instead of leaving `dictionaries[lang]` undefined and making
+ * `t()` throw on every render, which showed as a white screen.
+ */
+function readTheme(): Theme {
+    const stored = localStorage.getItem(STORAGE_KEYS.theme);
+    if (stored === 'dark' || stored === 'light') return stored;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export function PreferencesProvider({ children }: { children: ReactNode }) {
+    const [lang, setLang] = useState<Language>(() => {
+        const stored = localStorage.getItem(STORAGE_KEYS.lang);
+        return isLanguage(stored) ? stored : 'pt';
+    });
+    const [currency, setCurrency] = useState<Currency>(() => {
+        const stored = localStorage.getItem(STORAGE_KEYS.currency);
+        return isCurrency(stored) ? stored : 'BRL';
+    });
+    // Q56: theme lives here rather than in `ThemeToggle`'s own `useState`. Two toggles are
+    // mounted at once on some pages (one hidden by a breakpoint, not unmounted), so
+    // per-instance state meant clicking one left the other showing the wrong icon, and its
+    // first click was a visual no-op.
+    const [theme, setTheme] = useState<Theme>(readTheme);
 
     useEffect(() => {
-        localStorage.setItem('lang', lang);
+        localStorage.setItem(STORAGE_KEYS.lang, lang);
     }, [lang]);
 
     useEffect(() => {
-        localStorage.setItem('currency', currency);
+        localStorage.setItem(STORAGE_KEYS.currency, currency);
     }, [currency]);
 
-    const t = (key: TranslationKey): string => dictionaries[lang][key] || key;
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem(STORAGE_KEYS.theme, theme);
+    }, [theme]);
 
-    const formatCurrency = useMemo(() => {
-        return (value: number) =>
-            new Intl.NumberFormat(lang === 'pt' ? 'pt-BR' : lang === 'es' ? 'es-ES' : 'en-US', {
-                style: 'currency',
-                currency,
-            }).format(value);
-    }, [lang, currency]);
+    const toggleTheme = useCallback(() => {
+        setTheme(current => (current === 'dark' ? 'light' : 'dark'));
+    }, []);
+
+    // Q72: `t` used to be redefined on every render *and* be a dependency of the context
+    // `useMemo`, so the memo never hit and every consumer re-rendered whenever the
+    // provider did — which also defeated `memo()` on PlayerCard (Q94).
+    const t = useCallback((key: TranslationKey) => dictionaries[lang][key] || key, [lang]);
+
+    const formatCurrency = useCallback(
+        (cents: number) =>
+            new Intl.NumberFormat(LOCALE_TAGS[lang], { style: 'currency', currency }).format(
+                fromCents(cents),
+            ),
+        [lang, currency],
+    );
+
+    const formatDateTime = useCallback(
+        (iso: string) =>
+            new Intl.DateTimeFormat(LOCALE_TAGS[lang], {
+                dateStyle: 'short',
+                timeStyle: 'short',
+            }).format(new Date(iso)),
+        [lang],
+    );
+
+    const formatGroupLabel = useCallback(
+        (startDate: string, groupBy: 'week' | 'month' | 'year') => {
+            // The server sends a plain calendar date; parsing it as UTC keeps it from
+            // sliding a day backwards for viewers west of Greenwich.
+            const date = new Date(`${startDate}T00:00:00Z`);
+            const options: Intl.DateTimeFormatOptions =
+                groupBy === 'year'
+                    ? { year: 'numeric', timeZone: 'UTC' }
+                    : groupBy === 'month'
+                      ? { year: 'numeric', month: 'long', timeZone: 'UTC' }
+                      : { year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC' };
+            return new Intl.DateTimeFormat(LOCALE_TAGS[lang], options).format(date);
+        },
+        [lang],
+    );
 
     const value = useMemo(
-        () => ({ lang, setLang, currency, setCurrency, t, formatCurrency }),
-        [lang, currency, t, formatCurrency],
+        () => ({
+            lang,
+            setLang,
+            currency,
+            setCurrency,
+            theme,
+            toggleTheme,
+            t,
+            formatCurrency,
+            formatDateTime,
+            formatGroupLabel,
+        }),
+        [lang, currency, theme, toggleTheme, t, formatCurrency, formatDateTime, formatGroupLabel],
     );
+
     return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 
-export function usePreferences() {
+export function usePreferences(): PreferencesValue {
     const ctx = useContext(PreferencesContext);
     if (!ctx) throw new Error('usePreferences must be used inside PreferencesProvider');
     return ctx;
