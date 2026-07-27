@@ -310,11 +310,12 @@ export default function SessionDetailPage() {
 
                     {editable && (
                         <section className="space-y-3">
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <Button
                                     variant="secondary"
                                     onClick={() => setAddingPlayer(open => !open)}
                                     aria-expanded={addingPlayer}
+                                    className="flex-1"
                                 >
                                     <Plus size={16} />
                                     {t('addPlayer')}
@@ -323,6 +324,7 @@ export default function SessionDetailPage() {
                                     variant="secondary"
                                     disabled={atTable.length < 2}
                                     onClick={() => setCreditOpen(true)}
+                                    className="flex-1"
                                 >
                                     {t('registerCredit')}
                                 </Button>
