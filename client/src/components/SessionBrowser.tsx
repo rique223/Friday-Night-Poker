@@ -200,7 +200,7 @@ export default function SessionBrowser({
                         </AnimatePresence>
                     </div>
 
-                    <div className="flex items-center gap-2 justify-end">
+                    <div className="flex items-center gap-2 justify-between">
                         <Button
                             variant="secondary"
                             size="sm"
