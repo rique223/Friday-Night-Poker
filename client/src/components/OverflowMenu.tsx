@@ -76,7 +76,10 @@ export default function OverflowMenu({
                             panelClassName ??
                             'absolute right-0 mt-2 w-60 card shadow-lg z-20 p-3 space-y-2'
                         }
-                        onClick={() => setOpen(false)}
+                        onClick={event => {
+                            const item = (event.target as Element).closest('button, a[href]');
+                            if (item && panelRef.current?.contains(item)) setOpen(false);
+                        }}
                     >
                         {children}
                     </motion.div>
