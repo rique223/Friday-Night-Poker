@@ -63,9 +63,6 @@ export default function SessionBrowser({
 
     return (
         <div className="space-y-4">
-            {/* Q55/Q58: the filter stays mounted whatever the result count, so filtering to
-                zero matches is recoverable — and it is wired up on the archive page too,
-                where `onFilter` was simply never passed and the button did nothing. */}
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2 w-full">
                     <Input
@@ -137,10 +134,6 @@ export default function SessionBrowser({
                                                 key={session.id}
                                                 className="session-item flex items-center gap-2 pr-2"
                                             >
-                                                {/* Q64: this used to be a `motion.li` with an
-                                                    `onClick` and no role, tabIndex or key
-                                                    handler — a session could not be opened
-                                                    from a keyboard at all. */}
                                                 <button
                                                     type="button"
                                                     onClick={() => onSelect(session)}
@@ -178,9 +171,6 @@ export default function SessionBrowser({
                                                                 variant="danger"
                                                                 size="sm"
                                                                 className="w-full inline-flex gap-2"
-                                                                // Q86: disabled while a
-                                                                // request is in flight, so a
-                                                                // double-tap can't fire twice.
                                                                 disabled={isMutating}
                                                                 onClick={() => onArchive(session)}
                                                             >
