@@ -158,36 +158,34 @@ export default function SessionDetailPage() {
 
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-6">
-            <header className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => navigate('/')}
-                        className="inline-flex items-center gap-2"
-                    >
-                        <ArrowLeft size={16} /> {t('back')}
-                    </Button>
-                    <div className="min-w-0">
-                        <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 min-w-0">
-                            <span className="truncate">{formatSessionDate(session.createdAt)}</span>
-                            {mode !== 'settlement' && (
-                                <span className="inline-flex items-center gap-1.5 shrink-0">
-                                    <span className="live-dot" aria-hidden="true" />
-                                    <span className="text-xs font-normal text-dim">
-                                        {t('live')}
-                                    </span>
-                                </span>
-                            )}
-                        </h1>
-                        <p className="text-xs text-dim truncate">
-                            {t('session')} #{session.id} · {formatDateTime(session.createdAt)}
-                            {session.createdBy ? ` · ${t('createdBy')} ${session.createdBy}` : ''}
-                        </p>
-                    </div>
+            <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate('/')}
+                    className="order-1 inline-flex items-center gap-2"
+                >
+                    <ArrowLeft size={16} /> {t('back')}
+                </Button>
+
+                <div className="order-3 w-full min-w-0 sm:order-2 sm:w-auto sm:flex-1">
+                    <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 min-w-0">
+                        <span className="min-w-0">{formatSessionDate(session.createdAt)}</span>
+                        {mode !== 'settlement' && (
+                            <span className="inline-flex items-center gap-1.5 shrink-0">
+                                <span className="live-dot" aria-hidden="true" />
+                                <span className="text-xs font-normal text-dim">{t('live')}</span>
+                            </span>
+                        )}
+                    </h1>
+                    <p className="text-xs text-dim break-words">
+                        {t('session')} #{session.id} · {formatDateTime(session.createdAt)}
+                        {session.createdBy ? ` · ${t('createdBy')} ${session.createdBy}` : ''}
+                    </p>
                 </div>
 
                 <HeaderActions
+                    className="order-2 ml-auto sm:order-3 sm:ml-0"
                     showLogout
                     extraMenuItems={
                         session.status === 'open' ? (

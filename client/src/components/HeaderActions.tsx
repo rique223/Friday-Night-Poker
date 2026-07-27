@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { cn } from '../utils/cn';
 
 import Button from './ui/Button';
 import LangCurrencySwitcher from './LangCurrencySwitcher';
@@ -13,19 +14,21 @@ interface HeaderActionsProps {
     extraMenuItems?: ReactNode;
     showLogout?: boolean;
     showArchived?: boolean;
+    className?: string;
 }
 
 export default function HeaderActions({
     extraMenuItems,
     showLogout = false,
     showArchived = true,
+    className,
 }: HeaderActionsProps) {
     const { t } = usePreferences();
     const navigate = useNavigate();
     const { logout } = useAuth();
 
     return (
-        <div className="flex items-center gap-2">
+        <div className={cn('flex items-center gap-2', className)}>
             <ThemeToggle />
             <OverflowMenu ariaLabel={t('menu')}>
                 <LangCurrencySwitcher />
